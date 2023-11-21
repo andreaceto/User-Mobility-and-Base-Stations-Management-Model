@@ -35,23 +35,6 @@ GRAPHICS-WINDOW
 ticks
 30.0
 
-BUTTON
-60
-62
-141
-95
-Setup
-setup
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 @#$#@#$#@
 ## WHAT IS IT?
 
