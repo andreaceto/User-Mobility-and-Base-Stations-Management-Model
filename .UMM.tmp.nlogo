@@ -1,3 +1,6 @@
+breed []
+breed [
+
 to setup
   clear-all
   create-turtles 250 [
@@ -6,15 +9,20 @@ to setup
     set color violet
     setxy random-xcor random-ycor
   ]
-
+  create-turtles 10 [
+    set shape "house"
+    set size 2
+    set color yellow
+    setxy random-xcor random-ycor
+  ]
   reset-ticks
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-647
-448
+699
+500
 -1
 -1
 13.0
@@ -27,10 +35,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
+-18
+18
+-18
+18
 0
 0
 1

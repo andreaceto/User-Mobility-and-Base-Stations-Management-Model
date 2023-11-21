@@ -1,12 +1,15 @@
+breed [users user]
+breed [bases base]
+
 to setup
   clear-all
-  create-turtles 250 [
+  create-users 250 [
     set shape "person"
     set size 0.7
     set color violet
     setxy random-xcor random-ycor
   ]
-  create-turtles 10 [
+  create-bases 10 [
     set shape "house"
     set size 2
     set color yellow
@@ -18,8 +21,8 @@ end
 GRAPHICS-WINDOW
 210
 10
-647
-448
+699
+500
 -1
 -1
 13.0
@@ -32,10 +35,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
+-18
+18
+-18
+18
 0
 0
 1
