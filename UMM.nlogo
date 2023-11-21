@@ -6,6 +6,12 @@ to setup
     set color violet
     setxy random-xcor random-ycor
   ]
+  create-turtles 10 [
+    set shape "house"
+    set size 2
+    set color yellow
+    setxy random-xcor random-ycor
+  ]
   reset-ticks
 end
 @#$#@#$#@

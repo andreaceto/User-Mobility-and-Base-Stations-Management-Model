@@ -6,6 +6,7 @@ to setup
     set color violet
     setxy random-xcor random-ycor
   ]
+
   reset-ticks
 end
 @#$#@#$#@
