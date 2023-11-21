@@ -1,8 +1,9 @@
 to setup
   clear-all
   create-turtles 250 [
-    set size 0.6
-    set color blue
+    set shape "person"
+    set size 0.7
+    set color violet
     setxy random-xcor random-ycor
   ]
   reset-ticks

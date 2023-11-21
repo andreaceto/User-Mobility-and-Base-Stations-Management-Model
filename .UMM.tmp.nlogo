@@ -1,8 +1,9 @@
 to setup
   clear-all
   create-turtles 250 [
-    set size 0.6
-    set color blue
+    set shape "person"
+    set size 0.7
+    set color violet
     setxy random-xcor random-ycor
   ]
   reset-ticks
@@ -34,6 +35,23 @@ GRAPHICS-WINDOW
 1
 ticks
 30.0
+
+BUTTON
+60
+62
+141
+95
+Setup
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
