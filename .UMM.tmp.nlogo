@@ -1,19 +1,22 @@
-breed []
-breed [
+breed [users user]
+breed [bases base]
 
 to setup
   clear-all
-  create-turtles 250 [
+
+  create-bases 10 [
+    set shape "house"
+    set size 2
+    set color yellow
+    move-to one-of patches
+  ]
+
+  create-users 250 [
     set shape "person"
     set size 0.7
     set color violet
     setxy random-xcor random-ycor
-  ]
-  create-turtles 10 [
-    set shape "house"
-    set size 2
-    set color yellow
-    setxy random-xcor random-ycor
+    create-link-with min-one-of bases [distance myself]
   ]
   reset-ticks
 end
