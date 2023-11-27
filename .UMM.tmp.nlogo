@@ -15,7 +15,7 @@ to setup
     set shape "person"
     set size 0.7
     set color violet
-    setxy random-xcor random-ycor
+    move-to one-of patches
     create-link-with min-one-of bases [distance myself]
   ]
   reset-ticks
@@ -66,10 +66,10 @@ NIL
 1
 
 INPUTBOX
-61
-47
-153
-107
+60
+40
+152
+100
 number-of-users
 200.0
 1
