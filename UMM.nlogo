@@ -1,24 +1,78 @@
 breed [users user]
 breed [bases base]
+users-own [
+  linked-base-station
+  distance-to-nearest-bs
+]
+bases-own [linked-users]
 
+globals [
+  number-of-user ; the number of users in the model defined by user input
+  ;show-linked-users? ; if TRUE the number of linked users for every base station is shown
+  ;show-distance? ; if TRUE the distance to the closest base station for every user is shown
+]
 to setup
   clear-all
 
-  create-bases 10 [
+  create-users number-of-users [ ; create users and initialize their variables
+    set shape "person"
+    set size 0.7
+    set color violet
+    move-to one-of patches
+
+    set linked-base-station nobody
+    set distance-to-nearest-bs -1
+
+  ]
+
+  create-bases 10 [ ; create base staions and initialize their variables
     set shape "house"
     set size 2
     set color yellow
     move-to one-of patches
+
+    set linked-users 0
   ]
 
-  create-users 250 [
-    set shape "person"
-    set size 0.7
-    set color violet
-    setxy random-xcor random-ycor
-    create-link-with min-one-of bases [distance myself]
+  ask users [
+    ; find the nearest base station
+    let nearest-station min-one-of bases [distance myself]
+
+    ; create a link with the nearest base station
+    create-link-with nearest-station
+
+    ask links [
+      hide-link
+    ]
+
+    ; update the linked-base-station property
+    set linked-base-station nearest-station
+
+    ; update the distance-to-nearest-base-station variable
+    set distance-to-nearest-bs distance nearest-station
+
   ]
+
+  ask bases [
+
+    ; update the linked-users property
+    set linked-users count users with [linked-base-station = myself]
+
+  ]
+
+  display-labels
+
   reset-ticks
+end
+
+to display-labels
+  ;ask turtles [ set label "" ]
+  if show-linked-users? [
+    ask bases [ set label linked-users ]
+  ]
+  if show-distance? [
+    ask users [ set label round distance-to-nearest-bs ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -35,8 +89,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 -18
 18
@@ -49,10 +103,10 @@ ticks
 30.0
 
 BUTTON
-60
-62
-141
-95
+65
+130
+146
+163
 Setup
 setup
 NIL
@@ -64,6 +118,39 @@ NIL
 NIL
 NIL
 1
+
+INPUTBOX
+60
+40
+152
+100
+number-of-users
+20.0
+1
+0
+Number
+
+SWITCH
+30
+235
+180
+268
+show-distance?
+show-distance?
+1
+1
+-1000
+
+SWITCH
+30
+190
+182
+223
+show-linked-users?
+show-linked-users?
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -424,5 +511,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@
