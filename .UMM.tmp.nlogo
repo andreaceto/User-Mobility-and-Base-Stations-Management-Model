@@ -11,7 +11,7 @@ to setup
     move-to one-of patches
   ]
 
-  create-users 250 [
+  create-users number-of-users [
     set shape "person"
     set size 0.7
     set color violet
@@ -49,10 +49,10 @@ ticks
 30.0
 
 BUTTON
-60
-62
-141
-95
+65
+130
+146
+163
 Setup
 setup
 NIL
@@ -64,6 +64,17 @@ NIL
 NIL
 NIL
 1
+
+INPUTBOX
+61
+47
+153
+107
+number-of-users
+200.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -424,5 +435,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@
