@@ -66,7 +66,7 @@ to setup
   reset-ticks
 end
 
-;; displays user and base stations p
+;; displays user and base stations properties
 to display-labels
   ask turtles [ set label "" ]
   if show-linked-users? [
@@ -80,10 +80,11 @@ end
 ;; create base staions, initialize their variables and distribute them following a weighted system
 to setup-bases [num-bases]
   repeat num-bases [
-    ask one-of patches with [weight = 0] [
+    ask one-of patches with [weight = 0] [ ;;TO-DO no 0 weight pacth free
       sprout-bases 1 [
-        set shape "triangle"
-        set size 0.5
+        set shape "house"
+        set size 1
+        set color white
 
         set linked-users 0
       ]
@@ -167,7 +168,7 @@ INPUTBOX
 152
 100
 number-of-users
-500.0
+100.0
 1
 0
 Number
