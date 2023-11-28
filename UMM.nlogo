@@ -1,22 +1,26 @@
 breed [users user]
 breed [bases base]
+
 users-own [
   linked-base-station
   distance-to-nearest-bs
 ]
 bases-own [linked-users]
+patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 4=OCCUPIED
 
 globals [
-  number-of-user ; the number of users in the model defined by user input
-  ;show-linked-users? ; if TRUE the number of linked users for every base station is shown
-  ;show-distance? ; if TRUE the distance to the closest base station for every user is shown
+  number-of-user ;; the number of users in the model defined by user input
+  ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
+  ;show-distance? ;; if TRUE the distance to the closest base station for every user is shown
 ]
 to setup
   clear-all
 
-  create-users number-of-users [ ; create users and initialize their variables
+  ask patches [set weight 0] ;; initialize all patches to Free
+
+  create-users number-of-users [ ;; create users and initialize their variables
     set shape "person"
-    set size 0.7
+    set size 1
     set color violet
     move-to one-of patches
 
@@ -25,37 +29,34 @@ to setup
 
   ]
 
-  create-bases 10 [ ; create base staions and initialize their variables
-    set shape "house"
-    set size 2
-    set color yellow
-    move-to one-of patches
+  let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
 
-    set linked-users 0
-  ]
+  setup-bases number-of-bs
+
+  update-pcolors
 
   ask users [
-    ; find the nearest base station
+    ;; find the nearest base station
     let nearest-station min-one-of bases [distance myself]
 
-    ; create a link with the nearest base station
+    ;; create a link with the nearest base station
     create-link-with nearest-station
 
     ask links [
       hide-link
     ]
 
-    ; update the linked-base-station property
+    ;; update the linked-base-station property
     set linked-base-station nearest-station
 
-    ; update the distance-to-nearest-base-station variable
+    ;; update the distance-to-nearest-base-station variable
     set distance-to-nearest-bs distance nearest-station
 
   ]
 
   ask bases [
 
-    ; update the linked-users property
+    ;; update the linked-users property
     set linked-users count users with [linked-base-station = myself]
 
   ]
@@ -65,8 +66,9 @@ to setup
   reset-ticks
 end
 
+;; displays user and base stations properties
 to display-labels
-  ;ask turtles [ set label "" ]
+  ask turtles [ set label "" ]
   if show-linked-users? [
     ask bases [ set label linked-users ]
   ]
@@ -74,6 +76,47 @@ to display-labels
     ask users [ set label round distance-to-nearest-bs ]
   ]
 end
+
+;; create base staions, initialize their variables and distribute them following a weighted system
+to setup-bases [num-bases]
+  repeat num-bases [
+    ask one-of patches with [weight = 0] [ ;;TO-DO no 0 weight pacth free & increment radius
+      sprout-bases 1 [
+        set shape "house"
+        set size 1
+        set color white
+
+        set linked-users 0
+      ]
+      set weight 4
+
+      let i 3
+      while [i != 0] [
+        ask patches in-radius i[
+          if(weight <= 3) [
+           set weight weight + 1
+          ]
+        ]
+        set i i - 1
+      ]
+   ]
+  ]
+end
+
+;; updates patches color to help visualize weighted distribution system
+to update-pcolors
+  ask patches [
+    (ifelse
+      (weight = 4) [ set pcolor red ]
+      (weight = 3) [ set pcolor orange ]
+      (weight = 2) [ set pcolor yellow ]
+      (weight = 1) [ set pcolor white ]
+      [ set pcolor black ]
+    )
+  ]
+end
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -125,7 +168,7 @@ INPUTBOX
 152
 100
 number-of-users
-20.0
+100.0
 1
 0
 Number
