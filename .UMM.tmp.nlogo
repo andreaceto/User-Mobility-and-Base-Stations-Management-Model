@@ -2,8 +2,9 @@ breed [users user]
 breed [bases base]
 
 users-own [
-  linked-base-station
+  nearest-bs
   distance-to-nearest-bs
+  linked-bs
 ]
 bases-own [linked-users]
 patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 4=OCCUPIED
@@ -13,74 +14,44 @@ globals [
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance? ;; if TRUE the distance to the closest base station for every user is shown
 ]
+
 to setup
   clear-all
 
-  ask patches [set weight 0] ;; initialize all patches to Free
+  ;; initialize all patches to Free
+  ask patches [set weight 0]
 
-  create-users number-of-users [ ;; create users and initialize their variables
-    set shape "person"
-    set size 1
-    set color violet
-    move-to one-of patches
-
-    set linked-base-station nobody
-    set distance-to-nearest-bs -1
-
-  ]
+  setup-users number-of-users
 
   let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
-
   setup-bases number-of-bs
 
-  update-pcolors
-
-  ask users [
-    ;; find the nearest base station
-    let nearest-station min-one-of bases [distance myself]
-
-    ;; create a link with the nearest base station
-    create-link-with nearest-station
-
-    ask links [
-      hide-link
-    ]
-
-    ;; update the linked-base-station property
-    set linked-base-station nearest-station
-
-    ;; update the distance-to-nearest-base-station variable
-    set distance-to-nearest-bs distance nearest-station
-
-  ]
-
-  ask bases [
-
-    ;; update the linked-users property
-    set linked-users count users with [linked-base-station = myself]
-
-  ]
+  setup-user-bs-links
 
   display-labels
 
   reset-ticks
 end
 
-;; displays user and base stations properties
-to display-labels
-  ask turtles [ set label "" ]
-  if show-linked-users? [
-    ask bases [ set label linked-users ]
-  ]
-  if show-distance? [
-    ask users [ set label round distance-to-nearest-bs ]
+;; create users and initialize their variables
+to setup-users [num-users]
+  create-users num-users [
+    set shape "person"
+    set size 1
+    set color violet
+    move-to one-of patches
+
+    set nearest-bs nobody
+    set distance-to-nearest-bs -1
+    set linked-bs nobody
   ]
 end
 
-;; create base staions, initialize their variables and distribute them following a weighted system
+;; create base staions, initialize their variables and place them following a Weighted Distribution System
 to setup-bases [num-bases]
   repeat num-bases [
-    ask one-of patches with [weight = 0] [ ;;TO-DO no 0 weight pacth free
+    ;; sprout Base Stations on the patches with lowest possible weight
+    ask one-of patches with-min [weight] [
       sprout-bases 1 [
         set shape "house"
         set size 1
@@ -89,17 +60,83 @@ to setup-bases [num-bases]
         set linked-users 0
       ]
       set weight 4
-
-      let i 3
+      ;; update patches' weight of every patch in a radius of 6 from the Base Station
+      ;; 1-2 patches radius -> +3 weight
+      ;; 3-4 patches radius -> +2 weight
+      ;; 5-6 patches radius -> +1 weight
+      let i 6
       while [i != 0] [
         ask patches in-radius i[
-          if(weight <= 3) [
+          if(weight <= 3) [ ;; makes sure weight doesn't exceed the 4 limit
            set weight weight + 1
           ]
         ]
-        set i i - 1
+        set i i - 2
       ]
    ]
+  ]
+
+  ;; update (patch weight -> color) mapping
+  update-pcolors
+end
+
+;; finds nearest Base Station for every user and sets related property
+to setup-user-bs-links
+  ask users [
+
+    ;; find the nearest base station
+    set nearest-bs min-one-of bases [distance myself]
+
+    ;; create a link with the nearest base station
+    create-link-with nearest-bs
+
+    ask links [
+      hide-link
+    ]
+
+    ;; set the linked-bs property
+    set linked-bs nearest-bs
+
+    ;; set the distance-to-nearest-base-station variable
+    set distance-to-nearest-bs distance nearest-bs
+  ]
+
+  ;; update linked-users counter for every Base Station
+  update-linked-users
+end
+
+to update-user-bs-links
+  ask users [
+    ;; find nearest Base Station as the user moves
+    let actual-nearest-bs min-one-of bases [distance myself]
+
+    ;; if user movement causes a change of the nearest Base Station then update his properties
+    if (actual-nearest-bs != nearest-bs) [
+      ;; [who] properties of both user and Base Station is used to find the older link and delete it
+      ask link [who] of myself [who] of nearest-bs [die]
+
+      ;; user properties update
+      set nearest-bs actual-nearest-bs
+      create-link-with nearest-bs
+      ask links [
+        hide-link
+      ]
+      set linked-bs nearest-bs
+    ]
+
+    ;; in any case the distance to the nearest-bs is updated following user movement
+    set distance-to-nearest-bs distance nearest-bs
+  ]
+
+
+  update-linked-users
+
+end
+
+;; updates Base Stations' linked-users property
+to update-linked-users
+  ask bases [
+    set linked-users count users with [linked-bs = myself]
   ]
 end
 
@@ -113,6 +150,17 @@ to update-pcolors
       (weight = 1) [ set pcolor white ]
       [ set pcolor black ]
     )
+  ]
+end
+
+;; displays user and base stations properties
+to display-labels
+  ask turtles [ set label "" ]
+  if show-linked-users? [
+    ask bases [ set label linked-users ]
+  ]
+  if show-distance? [
+    ask users [ set label round distance-to-nearest-bs ]
   ]
 end
 
@@ -168,7 +216,7 @@ INPUTBOX
 152
 100
 number-of-users
-100.0
+500.0
 1
 0
 Number
