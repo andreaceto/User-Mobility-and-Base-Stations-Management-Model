@@ -13,6 +13,7 @@ globals [
   number-of-user ;; the number of users in the model defined by user input
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance? ;; if TRUE the distance to the closest base station for every user is shown
+  ;show-patch-weight? ;; if TRUE the (patch weight -> color) mapping is shown
 ]
 
 to setup
@@ -128,9 +129,8 @@ to update-user-bs-links
     set distance-to-nearest-bs distance nearest-bs
   ]
 
-
+  ;; update linked-users counter for every Base Station
   update-linked-users
-
 end
 
 ;; updates Base Stations' linked-users property
@@ -143,6 +143,8 @@ end
 ;; updates patches color to help visualize weighted distribution system
 to update-pcolors
   ask patches [
+    ifelse not show-patches-weight?
+    [
     (ifelse
       (weight = 4) [ set pcolor red ]
       (weight = 3) [ set pcolor orange ]
@@ -161,6 +163,9 @@ to display-labels
   ]
   if show-distance? [
     ask users [ set label round distance-to-nearest-bs ]
+  ]
+  if not show-patch-weight? [
+    ask patches [set pcolor black]
   ]
 end
 
@@ -228,7 +233,7 @@ SWITCH
 268
 show-distance?
 show-distance?
-1
+0
 1
 -1000
 
@@ -239,6 +244,17 @@ SWITCH
 223
 show-linked-users?
 show-linked-users?
+0
+1
+-1000
+
+SWITCH
+30
+280
+187
+313
+show-patch-weight?
+show-patch-weight?
 1
 1
 -1000
