@@ -34,12 +34,20 @@ to setup
   reset-ticks
 end
 
+to go
+  ask users [move]
+
+  tick
+  update-user-bs-links
+  display-labels
+end
+
 ;; create users and initialize their variables
 to setup-users [num-users]
   create-users num-users [
     set shape "person"
     set size 1
-    set color violet
+    set color pink
     move-to one-of patches
 
     set nearest-bs nobody
@@ -107,6 +115,13 @@ to setup-user-bs-links
   update-linked-users
 end
 
+;; makes users move
+to move
+  rt random 50
+  lt random 50
+  fd 1
+end
+
 to update-user-bs-links
   ask users [
     ;; find nearest Base Station as the user moves
@@ -115,7 +130,7 @@ to update-user-bs-links
     ;; if user movement causes a change of the nearest Base Station then update his properties
     if (actual-nearest-bs != nearest-bs) [
       ;; [who] properties of both user and Base Station is used to find the older link and delete it
-      ask link [who] of myself [who] of nearest-bs [die]
+      ask link [who] of self [who] of nearest-bs [die]
 
       ;; user properties update
       set nearest-bs actual-nearest-bs
@@ -200,10 +215,10 @@ ticks
 30.0
 
 BUTTON
-65
-130
-146
-163
+20
+125
+101
+158
 Setup
 setup
 NIL
@@ -222,7 +237,7 @@ INPUTBOX
 152
 100
 number-of-users
-500.0
+200.0
 1
 0
 Number
@@ -259,6 +274,23 @@ show-patch-weight?
 1
 1
 -1000
+
+BUTTON
+110
+125
+190
+158
+Go
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
