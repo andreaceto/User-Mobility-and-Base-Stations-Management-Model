@@ -7,19 +7,17 @@ users-own [
   linked-bs
 ]
 bases-own [linked-users]
-patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 4=OCCUPIED
+patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 5=OCCUPIED
 
 globals [
   number-of-user ;; the number of users in the model defined by user input
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance? ;; if TRUE the distance to the closest base station for every user is shown
+  ;show-patch-weight? ;; if TRUE the (patch weight -> color) mapping is shown
 ]
 
 to setup
   clear-all
-
-  ;; initialize all patches to Free
-  ask patches [set weight 0]
 
   setup-users number-of-users
 
@@ -33,12 +31,20 @@ to setup
   reset-ticks
 end
 
+to go
+  ask users [move]
+
+  tick
+  update-user-bs-links
+  display-labels
+end
+
 ;; create users and initialize their variables
 to setup-users [num-users]
   create-users num-users [
     set shape "person"
     set size 1
-    set color violet
+    set color pink
     move-to one-of patches
 
     set nearest-bs nobody
@@ -49,25 +55,29 @@ end
 
 ;; create base staions, initialize their variables and place them following a Weighted Distribution System
 to setup-bases [num-bases]
+  ;; initialize all patches to Free
+  ask patches [set weight 0]
+
   repeat num-bases [
     ;; sprout Base Stations on the patches with lowest possible weight
-    ask one-of patches with-min [weight] [
+    ask one-of patches with-min [weight] [ ;; --TO-DO-- improve spreading at low number of bases
       sprout-bases 1 [
         set shape "house"
-        set size 1
-        set color white
+        set size 1.
+        set color 33
 
         set linked-users 0
       ]
-      set weight 4
+      set weight 5
       ;; update patches' weight of every patch in a radius of 6 from the Base Station
-      ;; 1-2 patches radius -> +3 weight
-      ;; 3-4 patches radius -> +2 weight
-      ;; 5-6 patches radius -> +1 weight
-      let i 6
-      while [i != 0] [
+      ;; 1-2 patches radius -> +4 weight
+      ;; 3-4 patches radius -> +3 weight
+      ;; 5-6 patches radius -> +2 weight
+      ;; 7-8 patches radius -> +1 weight
+      let i 8
+      while [i >= 0] [
         ask patches in-radius i[
-          if(weight <= 3) [ ;; makes sure weight doesn't exceed the 4 limit
+          if(weight <= 4) [ ;; makes sure weight doesn't exceed the 5 limit
            set weight weight + 1
           ]
         ]
@@ -105,6 +115,22 @@ to setup-user-bs-links
   update-linked-users
 end
 
+;; makes users move
+to move ;;
+
+  ;; bounce off left and right walls
+  if abs pxcor = max-pxcor
+    [ set heading (- heading) ]
+
+  ;; bounce off top and bottom walls
+  if abs pycor = max-pycor
+    [ set heading (180 - heading) ]
+
+  rt random 50
+  lt random 50
+  fd 1
+end
+
 to update-user-bs-links
   ask users [
     ;; find nearest Base Station as the user moves
@@ -113,7 +139,7 @@ to update-user-bs-links
     ;; if user movement causes a change of the nearest Base Station then update his properties
     if (actual-nearest-bs != nearest-bs) [
       ;; [who] properties of both user and Base Station is used to find the older link and delete it
-      ask link [who] of myself [who] of nearest-bs [die]
+      ask link [who] of self [who] of nearest-bs [die]
 
       ;; user properties update
       set nearest-bs actual-nearest-bs
@@ -128,9 +154,8 @@ to update-user-bs-links
     set distance-to-nearest-bs distance nearest-bs
   ]
 
-
+  ;; update linked-users counter for every Base Station
   update-linked-users
-
 end
 
 ;; updates Base Stations' linked-users property
@@ -143,13 +168,18 @@ end
 ;; updates patches color to help visualize weighted distribution system
 to update-pcolors
   ask patches [
-    (ifelse
-      (weight = 4) [ set pcolor red ]
-      (weight = 3) [ set pcolor orange ]
-      (weight = 2) [ set pcolor yellow ]
-      (weight = 1) [ set pcolor white ]
-      [ set pcolor black ]
-    )
+    ifelse not show-patch-weight?
+    [ set pcolor black]
+    [
+      (ifelse
+        (weight = 5) [ set pcolor magenta ]
+        (weight = 4) [ set pcolor red ]
+        (weight = 3) [ set pcolor orange ]
+        (weight = 2) [ set pcolor yellow ]
+        (weight = 1) [ set pcolor white ]
+        [ set pcolor black ]
+      )
+    ]
   ]
 end
 
@@ -194,10 +224,10 @@ ticks
 30.0
 
 BUTTON
-65
-130
-146
-163
+20
+125
+101
+158
 Setup
 setup
 NIL
@@ -216,7 +246,7 @@ INPUTBOX
 152
 100
 number-of-users
-500.0
+200.0
 1
 0
 Number
@@ -228,7 +258,7 @@ SWITCH
 268
 show-distance?
 show-distance?
-1
+0
 1
 -1000
 
@@ -239,9 +269,37 @@ SWITCH
 223
 show-linked-users?
 show-linked-users?
+0
+1
+-1000
+
+SWITCH
+30
+280
+187
+313
+show-patch-weight?
+show-patch-weight?
 1
 1
 -1000
+
+BUTTON
+110
+125
+190
+158
+Go
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
