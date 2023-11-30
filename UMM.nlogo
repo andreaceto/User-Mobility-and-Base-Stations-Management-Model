@@ -19,9 +19,6 @@ globals [
 to setup
   clear-all
 
-  ;; initialize all patches to Free
-  ask patches [set weight 0]
-
   setup-users number-of-users
 
   let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
@@ -58,13 +55,16 @@ end
 
 ;; create base staions, initialize their variables and place them following a Weighted Distribution System
 to setup-bases [num-bases]
+  ;; initialize all patches to Free
+  ask patches [set weight 0]
+
   repeat num-bases [
     ;; sprout Base Stations on the patches with lowest possible weight
     ask one-of patches with-min [weight] [ ;; --TO-DO-- improve spreading at low number of bases
       sprout-bases 1 [
         set shape "house"
-        set size 1
-        set color white
+        set size 1.5
+        set color 33
 
         set linked-users 0
       ]
@@ -116,7 +116,16 @@ to setup-user-bs-links
 end
 
 ;; makes users move
-to move
+to move ;;
+
+  ;; bounce off left and right walls
+  if abs pxcor = max-pxcor
+    [ set heading (- heading) ]
+
+  ;; bounce off top and bottom walls
+  if abs pycor = max-pycor
+    [ set heading (180 - heading) ]
+
   rt random 50
   lt random 50
   fd 1
