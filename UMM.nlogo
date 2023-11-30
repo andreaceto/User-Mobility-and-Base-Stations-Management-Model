@@ -7,7 +7,7 @@ users-own [
   linked-bs
 ]
 bases-own [linked-users]
-patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 4=OCCUPIED
+patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 5=OCCUPIED
 
 globals [
   number-of-user ;; the number of users in the model defined by user input
@@ -52,7 +52,7 @@ end
 to setup-bases [num-bases]
   repeat num-bases [
     ;; sprout Base Stations on the patches with lowest possible weight
-    ask one-of patches with-min [weight] [
+    ask one-of patches with-min [weight] [ ;; --TO-DO-- improve spreading at low number of bases
       sprout-bases 1 [
         set shape "house"
         set size 1
@@ -60,15 +60,16 @@ to setup-bases [num-bases]
 
         set linked-users 0
       ]
-      set weight 4
+      set weight 5
       ;; update patches' weight of every patch in a radius of 6 from the Base Station
-      ;; 1-2 patches radius -> +3 weight
-      ;; 3-4 patches radius -> +2 weight
-      ;; 5-6 patches radius -> +1 weight
-      let i 6
-      while [i != 0] [
+      ;; 1-2 patches radius -> +4 weight
+      ;; 3-4 patches radius -> +3 weight
+      ;; 5-6 patches radius -> +2 weight
+      ;; 7-8 patches radius -> +1 weight
+      let i 8
+      while [i >= 0] [
         ask patches in-radius i[
-          if(weight <= 3) [ ;; makes sure weight doesn't exceed the 4 limit
+          if(weight <= 4) [ ;; makes sure weight doesn't exceed the 5 limit
            set weight weight + 1
           ]
         ]
@@ -147,6 +148,7 @@ to update-pcolors
     [ set pcolor black]
     [
       (ifelse
+        (weight = 5) [ set pcolor magenta ]
         (weight = 4) [ set pcolor red ]
         (weight = 3) [ set pcolor orange ]
         (weight = 2) [ set pcolor yellow ]
