@@ -139,8 +139,10 @@ end
 ;; makes users move towards their destination
 to reach-destination ;; --TO BE UPDATED--
 
+  let dest [destination] of self
+
   ;; when users reach their destination we stop considering them
-  if(patch-here = [destination] of self) [die]
+  if(patch-here = dest) [die]
 
   ;; bounce off left and right walls
   if abs pxcor = max-pxcor
@@ -150,9 +152,11 @@ to reach-destination ;; --TO BE UPDATED--
   if abs pycor = max-pycor
     [ set heading (180 - heading) ]
 
-  rt random 50
-  lt random 50
-  fd 1
+;  rt random 50
+;  lt random 50
+;  fd 1
+
+  move-to min-one-of neighbors [distance dest]
 end
 
 ;; updates links between users and nearest Base Stations -if needed- and all related properties
@@ -269,7 +273,7 @@ INPUTBOX
 152
 100
 number-of-users
-10.0
+250.0
 1
 0
 Number
@@ -303,7 +307,7 @@ SWITCH
 313
 show-patch-weight?
 show-patch-weight?
-0
+1
 1
 -1000
 
@@ -323,6 +327,24 @@ NIL
 NIL
 NIL
 0
+
+PLOT
+730
+10
+1160
+185
+Users in the system
+time
+users
+0.0
+30000.0
+0.0
+500.0
+true
+true
+"" ""
+PENS
+"Users" 1.0 0 -2064490 true "" "plot count users"
 
 @#$#@#$#@
 ## WHAT IS IT?
