@@ -5,6 +5,8 @@ users-own [
   nearest-bs
   distance-to-nearest-bs
   linked-bs
+  destination
+  distance-to-dest
 ]
 bases-own [linked-users]
 patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 5=OCCUPIED
@@ -32,14 +34,14 @@ to setup
 end
 
 to go
-  ask users [move]
+  ask users [reach-destination]
 
   tick
   update-user-bs-links
   display-labels
 end
 
-;; create users and initialize their variables
+;; creates users and initialize their variables
 to setup-users [num-users]
   create-users num-users [
     set shape "person"
@@ -50,10 +52,29 @@ to setup-users [num-users]
     set nearest-bs nobody
     set distance-to-nearest-bs -1
     set linked-bs nobody
+    set destination nobody
+    set distance-to-dest -1
+  ]
+  setup-destinations
+end
+
+;; generates a random destination for every user while also making sure it's not to close from their starting positions
+to setup-destinations
+  ;; stores the generated destination patch
+  let destination-patch nobody
+
+  ask users [
+    ;; makes sure the generated destination it's not to close
+    while[distance-to-dest < 5] [
+      ;; makes sure the generated destination it's on the borders
+      set destination-patch one-of patches with [abs pxcor = max-pxcor or abs pycor = max-pycor]
+      set destination destination-patch
+      set distance-to-dest distance destination-patch
+    ]
   ]
 end
 
-;; create base staions, initialize their variables and place them following a Weighted Distribution System
+;; creates base staions, initializes their variables and places them following a Weighted Distribution System
 to setup-bases [num-bases]
   ;; initialize all patches to Free
   ask patches [set weight 0]
@@ -63,7 +84,7 @@ to setup-bases [num-bases]
     ask one-of patches with-min [weight] [ ;; --TO-DO-- improve spreading at low number of bases
       sprout-bases 1 [
         set shape "house"
-        set size 1.
+        set size 1.5
         set color 33
 
         set linked-users 0
@@ -115,22 +136,21 @@ to setup-user-bs-links
   update-linked-users
 end
 
-;; makes users move
-to move ;;
+;; makes users move towards their destination
+to reach-destination ;; --TO BE UPDATED--
 
-  ;; bounce off left and right walls
-  if abs pxcor = max-pxcor
-    [ set heading (- heading) ]
+  let dest [destination] of self
 
-  ;; bounce off top and bottom walls
-  if abs pycor = max-pycor
-    [ set heading (180 - heading) ]
+  ;; when users reach their destination we stop considering them
+  if(patch-here = dest) [die]
 
-  rt random 50
-  lt random 50
-  fd 1
+
+
+  ;; at each step the user moves to the neighbor patch closest to the destination
+  move-to min-one-of neighbors [distance dest]
 end
 
+;; updates links between users and nearest Base Stations -if needed- and all related properties
 to update-user-bs-links
   ask users [
     ;; find nearest Base Station as the user moves
@@ -169,7 +189,7 @@ end
 to update-pcolors
   ask patches [
     ifelse not show-patch-weight?
-    [ set pcolor black]
+    [ set pcolor 3 ] ;; dark gray
     [
       (ifelse
         (weight = 5) [ set pcolor magenta ]
@@ -177,7 +197,7 @@ to update-pcolors
         (weight = 3) [ set pcolor orange ]
         (weight = 2) [ set pcolor yellow ]
         (weight = 1) [ set pcolor white ]
-        [ set pcolor black ]
+        [ set pcolor 3 ] ;; dark gray
       )
     ]
   ]
@@ -193,8 +213,6 @@ to display-labels
     ask users [ set label round distance-to-nearest-bs ]
   ]
 end
-
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -246,7 +264,7 @@ INPUTBOX
 152
 100
 number-of-users
-200.0
+250.0
 1
 0
 Number
@@ -258,7 +276,7 @@ SWITCH
 268
 show-distance?
 show-distance?
-0
+1
 1
 -1000
 
@@ -269,7 +287,7 @@ SWITCH
 223
 show-linked-users?
 show-linked-users?
-0
+1
 1
 -1000
 
@@ -300,6 +318,24 @@ NIL
 NIL
 NIL
 0
+
+PLOT
+5
+340
+195
+500
+Users in the system
+time (ticks)
+users (units)
+0.0
+50.0
+0.0
+500.0
+true
+true
+"" ""
+PENS
+"Users" 1.0 0 -2064490 true "" "plot count users"
 
 @#$#@#$#@
 ## WHAT IS IT?
