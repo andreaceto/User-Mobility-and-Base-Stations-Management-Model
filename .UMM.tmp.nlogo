@@ -55,11 +55,11 @@ to setup-users [num-users]
     set destination nobody
     set distance-to-dest -1
   ]
-
+  setup-destinations
 end
 
 ;; generates a random destination for every user while also making sure it's not to close from their starting positions
-to setup-destination
+to setup-destinations
   ;; stores the generated destination patch
   let destination-patch nobody
 
@@ -323,6 +323,24 @@ NIL
 NIL
 NIL
 0
+
+PLOT
+730
+10
+1160
+185
+Users in the system
+time
+users
+0.0
+100.0
+0.0
+500.0
+true
+true
+"" ""
+PENS
+"Users" 1.0 0 -2064490 true "" "plot count users"
 
 @#$#@#$#@
 ## WHAT IS IT?

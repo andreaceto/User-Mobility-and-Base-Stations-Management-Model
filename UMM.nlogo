@@ -269,7 +269,7 @@ INPUTBOX
 152
 100
 number-of-users
-250.0
+10.0
 1
 0
 Number
