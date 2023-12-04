@@ -144,18 +144,7 @@ to reach-destination ;; --TO BE UPDATED--
   ;; when users reach their destination we stop considering them
   if(patch-here = dest) [die]
 
-  ;; bounce off left and right walls
-  if abs pxcor = max-pxcor
-    [ set heading (- heading) ]
-
-  ;; bounce off top and bottom walls
-  if abs pycor = max-pycor
-    [ set heading (180 - heading) ]
-
-;  rt random 50
-;  lt random 50
-;  fd 1
-
+  ;; at each step the user moves to the neighbor patch closest to the destination
   move-to min-one-of neighbors [distance dest]
 end
 
@@ -329,15 +318,15 @@ NIL
 0
 
 PLOT
-730
-10
-1160
-185
+5
+340
+195
+500
 Users in the system
-time
-users
+time (ticks)
+users (units)
 0.0
-30000.0
+50.0
 0.0
 500.0
 true
