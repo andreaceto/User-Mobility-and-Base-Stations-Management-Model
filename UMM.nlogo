@@ -235,9 +235,9 @@ to display-labels
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-215
+370
 50
-704
+859
 540
 -1
 -1
@@ -262,10 +262,10 @@ ticks
 30.0
 
 BUTTON
-20
-125
-101
-158
+100
+160
+181
+193
 Setup
 setup
 NIL
@@ -279,10 +279,10 @@ NIL
 1
 
 INPUTBOX
-60
-40
-152
-100
+140
+75
+232
+135
 number-of-users
 250.0
 1
@@ -290,10 +290,10 @@ number-of-users
 Number
 
 SWITCH
-30
-235
-237
-268
+80
+250
+287
+283
 show-distance-to-nearest-bs?
 show-distance-to-nearest-bs?
 1
@@ -301,10 +301,10 @@ show-distance-to-nearest-bs?
 -1000
 
 SWITCH
-30
 190
-182
-223
+210
+342
+243
 show-linked-users?
 show-linked-users?
 1
@@ -312,10 +312,10 @@ show-linked-users?
 -1000
 
 SWITCH
-30
-280
-187
-313
+25
+210
+180
+243
 show-patch-weight?
 show-patch-weight?
 1
@@ -323,10 +323,10 @@ show-patch-weight?
 -1000
 
 BUTTON
-110
-125
 190
-158
+160
+270
+193
 Go
 go
 T
@@ -340,10 +340,10 @@ NIL
 0
 
 PLOT
-5
-340
-195
-500
+80
+345
+285
+505
 Users in the system
 time (ticks)
 users (units)
@@ -358,9 +358,9 @@ PENS
 "Users" 1.0 0 -2064490 true "" "plot count users"
 
 SLIDER
-360
+515
 10
-532
+687
 43
 world-area
 world-area
@@ -373,10 +373,10 @@ km²
 HORIZONTAL
 
 SWITCH
-950
-185
-1157
-218
+80
+290
+287
+323
 show-distance-to-destination?
 show-distance-to-destination?
 1
