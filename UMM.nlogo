@@ -14,12 +14,19 @@ patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FR
 globals [
   number-of-user ;; the number of users in the model defined by user input
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
-  ;show-distance? ;; if TRUE the distance to the closest base station for every user is shown
+  ;show-distance-to-nearest-bs? ;; if TRUE the distance to the closest base station for every user is shown
   ;show-patch-weight? ;; if TRUE the (patch weight -> color) mapping is shown
+  ;world-area ;; defined by user in km² to improve realistic environment
+  patch-side-lenght ;; defined following world-side-lenght, used to track user travel distance in metres
+  ;show-distance-to-destination? ;; if TRUE, for each user, the distance to their destination is shown
 ]
 
 to setup
   clear-all
+
+  ;; intialization for real life metrics, since distance is calculated
+  ;; in patches from centre to centre, we can use this measure to convert distance in metres
+  set patch-side-lenght sqrt(world-area * 1000) / (max-pxcor * 2 + 1)
 
   setup-users number-of-users
 
@@ -71,11 +78,11 @@ to setup-destinations
 
   ask users [
     ;; makes sure the generated destination it's not to close
-    while[distance-to-dest < 5] [
+    while[distance-to-dest < (5 * patch-side-lenght)] [
       ;; makes sure the generated destination it's on the borders
       set destination-patch one-of patches with [abs pxcor = max-pxcor or abs pycor = max-pycor]
       set destination destination-patch
-      set distance-to-dest distance destination-patch
+      set distance-to-dest round((distance destination-patch) * patch-side-lenght)
     ]
   ]
 end
@@ -135,7 +142,7 @@ to setup-user-bs-links
     set linked-bs nearest-bs
 
     ;; set the distance-to-nearest-base-station variable
-    set distance-to-nearest-bs distance nearest-bs
+    set distance-to-nearest-bs (distance nearest-bs) * patch-side-lenght
   ]
 
   ;; update linked-users counter for every Base Station
@@ -152,6 +159,12 @@ to reach-destination ;; --TO BE UPDATED--
 
   ;; at each step the user moves to the neighbor patch closest to the destination
   move-to min-one-of neighbors [distance dest]
+
+  ;; updates distance to destination at each step
+  ;; that older distance is just decreased by a patch-side-lenght
+  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
+  ;; but that equals a patch-side-lenght distance traveled since patch are squares
+  set distance-to-dest round(distance-to-dest - patch-side-lenght)
 end
 
 ;; updates links between users and nearest Base Stations -if needed- and all related properties
@@ -175,7 +188,7 @@ to update-user-bs-links
     ]
 
     ;; in any case the distance to the nearest-bs is updated following user movement
-    set distance-to-nearest-bs distance nearest-bs
+    set distance-to-nearest-bs (distance nearest-bs) * patch-side-lenght
   ]
 
   ;; update linked-users counter for every Base Station
@@ -213,16 +226,19 @@ to display-labels
   if show-linked-users? [
     ask bases [ set label linked-users ]
   ]
-  if show-distance? [
+  if show-distance-to-nearest-bs? [
     ask users [ set label round distance-to-nearest-bs ]
+  ]
+  if show-distance-to-destination? [
+    ask users [ set label distance-to-dest ]
   ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
-10
-699
-500
+215
+50
+704
+540
 -1
 -1
 13.0
@@ -276,10 +292,10 @@ Number
 SWITCH
 30
 235
-180
+237
 268
-show-distance?
-show-distance?
+show-distance-to-nearest-bs?
+show-distance-to-nearest-bs?
 1
 1
 -1000
@@ -340,6 +356,32 @@ true
 "" ""
 PENS
 "Users" 1.0 0 -2064490 true "" "plot count users"
+
+SLIDER
+360
+10
+532
+43
+world-area
+world-area
+1
+100
+50.0
+1
+1
+km²
+HORIZONTAL
+
+SWITCH
+950
+185
+1157
+218
+show-distance-to-destination?
+show-distance-to-destination?
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
