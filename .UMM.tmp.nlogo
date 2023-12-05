@@ -263,9 +263,9 @@ ticks
 
 BUTTON
 100
-120
+160
 181
-153
+193
 Setup
 setup
 NIL
@@ -280,9 +280,9 @@ NIL
 
 INPUTBOX
 140
-35
+75
 232
-95
+135
 number-of-users
 250.0
 1
@@ -291,9 +291,9 @@ Number
 
 SWITCH
 80
-210
+285
 287
-243
+318
 show-distance-to-nearest-bs?
 show-distance-to-nearest-bs?
 1
@@ -302,9 +302,9 @@ show-distance-to-nearest-bs?
 
 SWITCH
 190
-170
+210
 342
-203
+243
 show-linked-users?
 show-linked-users?
 1
@@ -313,9 +313,9 @@ show-linked-users?
 
 SWITCH
 25
-170
+210
 180
-203
+243
 show-patch-weight?
 show-patch-weight?
 1
@@ -324,9 +324,9 @@ show-patch-weight?
 
 BUTTON
 190
-120
+160
 270
-153
+193
 Go
 go
 T
@@ -340,10 +340,10 @@ NIL
 0
 
 PLOT
-5
-340
-195
-500
+80
+380
+285
+540
 Users in the system
 time (ticks)
 users (units)
@@ -373,10 +373,10 @@ km²
 HORIZONTAL
 
 SWITCH
-100
-545
-307
-578
+80
+325
+287
+358
 show-distance-to-destination?
 show-distance-to-destination?
 0
