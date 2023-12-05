@@ -34,6 +34,12 @@ to setup
 end
 
 to go
+
+  if not any? users [
+    user-message(word number-of-users " users reached their destination in " ticks " ticks.")
+    stop
+  ]
+
   ask users [reach-destination]
 
   tick

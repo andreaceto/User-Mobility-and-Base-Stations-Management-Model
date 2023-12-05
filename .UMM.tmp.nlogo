@@ -34,6 +34,12 @@ to setup
 end
 
 to go
+
+  if not any? users [
+    user-message(word number-of-users " users reached their destination in " ticks " ticks.")
+    stop
+  ]
+
   ask users [reach-destination]
 
   tick
@@ -143,8 +149,6 @@ to reach-destination ;; --TO BE UPDATED--
 
   ;; when users reach their destination we stop considering them
   if(patch-here = dest) [die]
-
-
 
   ;; at each step the user moves to the neighbor patch closest to the destination
   move-to min-one-of neighbors [distance dest]
