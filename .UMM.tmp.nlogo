@@ -8,7 +8,11 @@ users-own [
   destination
   distance-to-dest
 ]
-bases-own [linked-users]
+bases-own [
+  capacity
+  linked-users
+  signal-range
+]
 patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 5=OCCUPIED
 
 globals [
@@ -100,6 +104,8 @@ to setup-bases [num-bases]
         set size 1.5
         set color 33
 
+        set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
+        set signal-range r
         set linked-users 0
       ]
       set weight 5
@@ -263,9 +269,9 @@ ticks
 
 BUTTON
 100
-120
+160
 181
-153
+193
 Setup
 setup
 NIL
@@ -280,9 +286,9 @@ NIL
 
 INPUTBOX
 140
-35
+75
 232
-95
+135
 number-of-users
 250.0
 1
@@ -290,10 +296,10 @@ number-of-users
 Number
 
 SWITCH
-80
-210
-287
-243
+85
+255
+292
+288
 show-distance-to-nearest-bs?
 show-distance-to-nearest-bs?
 1
@@ -302,9 +308,9 @@ show-distance-to-nearest-bs?
 
 SWITCH
 190
-170
+210
 342
-203
+243
 show-linked-users?
 show-linked-users?
 1
@@ -313,9 +319,9 @@ show-linked-users?
 
 SWITCH
 25
-170
+210
 180
-203
+243
 show-patch-weight?
 show-patch-weight?
 1
@@ -324,9 +330,9 @@ show-patch-weight?
 
 BUTTON
 190
-120
+160
 270
-153
+193
 Go
 go
 T
@@ -340,10 +346,10 @@ NIL
 0
 
 PLOT
-5
-340
-195
-500
+85
+375
+290
+535
 Users in the system
 time (ticks)
 users (units)
@@ -373,15 +379,25 @@ km²
 HORIZONTAL
 
 SWITCH
-100
-545
-307
-578
+85
+295
+292
+328
 show-distance-to-destination?
 show-distance-to-destination?
-0
+1
 1
 -1000
+
+TEXTBOX
+130
+330
+255
+348
+[Distances are in metres]
+10
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
