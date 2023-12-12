@@ -23,14 +23,17 @@ globals [
   ;world-area ;; defined by user in km² to improve realistic environment
   patch-side-lenght ;; defined following world-side-lenght, used to track user travel distance in metres
   ;show-distance-to-destination? ;; if TRUE, for each user, the distance to their destination is shown
+  ;show-bs-range? ;; if TRUE, for each Base Station, the signal range is shown
 ]
 
 to setup
   clear-all
-
+  let world-side-lenght sqrt(world-area * 1000)
+  set-patch-size 15 * ( sqrt(world-area) / world-area)
+  resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2) (world-side-lenght / 2 * -1) (world-side-lenght / 2)
   ;; intialization for real life metrics, since distance is calculated
   ;; in patches from centre to centre, we can use this measure to convert distance in metres
-  set patch-side-lenght sqrt(world-area * 1000) / (max-pxcor * 2 + 1)
+  set patch-side-lenght world-side-lenght / (max-pxcor * 2 + 1)
 
   setup-users number-of-users
 
@@ -105,7 +108,7 @@ to setup-bases [num-bases]
         set color 33
 
         set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
-        set signal-range r
+        set signal-range round 300 / patch-side-lenght
         set linked-users 0
       ]
       set weight 5
@@ -238,16 +241,23 @@ to display-labels
   if show-distance-to-destination? [
     ask users [ set label distance-to-dest ]
   ]
+  if show-bs-range? [
+    ask bases [
+      ask patches in-radius signal-range [
+        set pcolor lime
+      ]
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-370
-50
-859
-540
+400
+70
+868
+539
 -1
 -1
-13.0
+1.5
 1
 10
 1
@@ -257,10 +267,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--18
-18
--18
-18
+-158
+158
+-158
+158
 0
 0
 1
@@ -290,7 +300,7 @@ INPUTBOX
 232
 135
 number-of-users
-250.0
+10.0
 1
 0
 Number
@@ -313,7 +323,7 @@ SWITCH
 243
 show-linked-users?
 show-linked-users?
-1
+0
 1
 -1000
 
@@ -364,15 +374,15 @@ PENS
 "Users" 1.0 0 -2064490 true "" "plot count users"
 
 SLIDER
-515
+540
 10
-687
+712
 43
 world-area
 world-area
 1
 100
-50.0
+100.0
 1
 1
 km²
@@ -398,6 +408,17 @@ TEXTBOX
 10
 0.0
 1
+
+SWITCH
+990
+170
+1127
+203
+show-bs-range?
+show-bs-range?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
