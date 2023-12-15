@@ -17,7 +17,8 @@ patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FR
 
 globals [
   ;population-density ;; represents the denisty of users in the world-area, used to determine the number of users
-  number-of-user ;; the number of users in the model defined considering population-density and model-scale
+  population-scale ;; represents the model:real world ratio
+  number-of-user ;; the number of users in the model defined considering population-density and population-scale
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance-to-nearest-bs? ;; if TRUE the distance to the closest base station for every user is shown
   ;show-patch-weight? ;; if TRUE the (patch weight -> color) mapping is shown
@@ -25,7 +26,6 @@ globals [
   patch-side-lenght ;; defined following world-side-lenght, used to track user travel distance in metres
   ;show-distance-to-destination? ;; if TRUE, for each user, the distance to their destination is shown
   ;show-bs-range? ;; if TRUE, for each Base Station, the signal range is shown
-  model-scale ;; represents the model:real world ratio
 ]
 
 to setup
@@ -33,7 +33,7 @@ to setup
 
   setup-world-size
 
-  let number-of-users population-density * world-area * model-scale
+  let number-of-users population-density * world-area * population-scale
   setup-users number-of-users
 
   ;let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
@@ -63,10 +63,11 @@ end
 ;; initializes model world and related metrics
 to setup-world-size
   ;; fixed (model :real world) ratio
-  set model-scale 1 / 1000
+  set population-scale 1 / 1000
 
   ;; World Box shifts its dimension dynamically to mantain same proportion
   ;; this gives a zoom-in zoom-out effect
+
   ;; dynamic world side lenght in #patches
   let world-side-lenght (world-area / 10)
 
@@ -77,7 +78,7 @@ to setup-world-size
 
   ;; intialization for real life metrics, since distance is calculated
   ;; in patches from centre to centre, we can use this measure to convert distance in metres
-  set patch-side-lenght world-side-lenght / (max-pxcor * 2 + 1)
+  set patch-side-lenght sqrt(world-area * 1000) / ((abs min-pxcor) * 2)
 end
 
 ;; creates users and initialize their variables
@@ -127,7 +128,7 @@ to setup-bases [num-bases]
         set color 33
 
         set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
-        set signal-range round 300 / patch-side-lenght * model-scale
+        set signal-range round 300 / patch-side-lenght
         set linked-users 0
       ]
       set weight 5
@@ -272,11 +273,11 @@ end
 GRAPHICS-WINDOW
 400
 100
-802
-503
+808
+509
 -1
 -1
-7.246376811594203
+5.0
 1
 10
 1
@@ -286,10 +287,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--34
-33
--34
-33
+-50
+49
+-50
+49
 0
 0
 1
@@ -390,7 +391,7 @@ world-area
 world-area
 100
 1000
-690.0
+1000.0
 1
 1
 km²
