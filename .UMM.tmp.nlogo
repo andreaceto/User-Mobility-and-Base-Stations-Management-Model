@@ -16,7 +16,8 @@ bases-own [
 patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 5=OCCUPIED
 
 globals [
-  number-of-user ;; the number of users in the model defined by user input
+  ;population-density ;; represents the denisty of users in the world-area, used to determine the number of users
+  number-of-user ;; the number of users in the model defined considering population-density and model-scale
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance-to-nearest-bs? ;; if TRUE the distance to the closest base station for every user is shown
   ;show-patch-weight? ;; if TRUE the (patch weight -> color) mapping is shown
@@ -24,21 +25,19 @@ globals [
   patch-side-lenght ;; defined following world-side-lenght, used to track user travel distance in metres
   ;show-distance-to-destination? ;; if TRUE, for each user, the distance to their destination is shown
   ;show-bs-range? ;; if TRUE, for each Base Station, the signal range is shown
+  model-scale ;; represents the model:real world ratio
 ]
 
 to setup
   clear-all
-  let world-side-lenght sqrt(world-area * 1000)
-  set-patch-size 15 * ( sqrt(world-area) / world-area)
-  resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2) (world-side-lenght / 2 * -1) (world-side-lenght / 2)
-  ;; intialization for real life metrics, since distance is calculated
-  ;; in patches from centre to centre, we can use this measure to convert distance in metres
-  set patch-side-lenght world-side-lenght / (max-pxcor * 2 + 1)
 
+  setup-world-size
+
+  let number-of-users population-density * world-area * model-scale
   setup-users number-of-users
 
-  let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
-  setup-bases number-of-bs
+  ;let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
+  setup-bases 1
 
   setup-user-bs-links
 
@@ -50,7 +49,7 @@ end
 to go
 
   if not any? users [
-    user-message(word number-of-users " users reached their destination in " ticks " ticks.")
+    ;user-message(word " All users reached their destination in " ticks " ticks.")
     stop
   ]
 
@@ -59,6 +58,26 @@ to go
   tick
   update-user-bs-links
   display-labels
+end
+
+;; initializes model world and related metrics
+to setup-world-size
+  ;; fixed (model :real world) ratio
+  set model-scale 1 / 1000
+
+  ;; World Box shifts its dimension dynamically to mantain same proportion
+  ;; this gives a zoom-in zoom-out effect
+  ;; dynamic world side lenght in #patches
+  let world-side-lenght (world-area / 10)
+
+  ;; dynamic patch size
+  set-patch-size 5000 / world-area
+
+  resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1) (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1)
+
+  ;; intialization for real life metrics, since distance is calculated
+  ;; in patches from centre to centre, we can use this measure to convert distance in metres
+  set patch-side-lenght world-side-lenght / (max-pxcor * 2 + 1)
 end
 
 ;; creates users and initialize their variables
@@ -108,7 +127,7 @@ to setup-bases [num-bases]
         set color 33
 
         set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
-        set signal-range round 300 / patch-side-lenght
+        set signal-range round 300 / patch-side-lenght * model-scale
         set linked-users 0
       ]
       set weight 5
@@ -252,12 +271,12 @@ end
 @#$#@#$#@
 GRAPHICS-WINDOW
 400
-70
-868
-539
+100
+808
+509
 -1
 -1
-1.5
+50.0
 1
 10
 1
@@ -267,10 +286,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--158
-158
--158
-158
+-5
+4
+-5
+4
 0
 0
 1
@@ -279,9 +298,9 @@ ticks
 
 BUTTON
 100
-160
+185
 181
-193
+218
 Setup
 setup
 NIL
@@ -294,22 +313,11 @@ NIL
 NIL
 1
 
-INPUTBOX
-140
-75
-232
-135
-number-of-users
-10.0
-1
-0
-Number
-
 SWITCH
 85
-255
+280
 292
-288
+313
 show-distance-to-nearest-bs?
 show-distance-to-nearest-bs?
 1
@@ -318,9 +326,9 @@ show-distance-to-nearest-bs?
 
 SWITCH
 190
-210
+235
 342
-243
+268
 show-linked-users?
 show-linked-users?
 0
@@ -329,9 +337,9 @@ show-linked-users?
 
 SWITCH
 25
-210
+235
 180
-243
+268
 show-patch-weight?
 show-patch-weight?
 1
@@ -340,9 +348,9 @@ show-patch-weight?
 
 BUTTON
 190
-160
+185
 270
-193
+218
 Go
 go
 T
@@ -357,9 +365,9 @@ NIL
 
 PLOT
 85
-375
+400
 290
-535
+560
 Users in the system
 time (ticks)
 users (units)
@@ -374,14 +382,14 @@ PENS
 "Users" 1.0 0 -2064490 true "" "plot count users"
 
 SLIDER
-540
-10
-712
-43
+545
+70
+717
+103
 world-area
 world-area
-1
 100
+1000
 100.0
 1
 1
@@ -390,9 +398,9 @@ HORIZONTAL
 
 SWITCH
 85
-295
+320
 292
-328
+353
 show-distance-to-destination?
 show-distance-to-destination?
 1
@@ -401,9 +409,9 @@ show-distance-to-destination?
 
 TEXTBOX
 130
-330
+355
 255
-348
+373
 [Distances are in metres]
 10
 0.0
@@ -419,6 +427,21 @@ show-bs-range?
 0
 1
 -1000
+
+SLIDER
+210
+20
+412
+53
+population-density
+population-density
+1
+7000
+1.0
+1
+1
+pop./km²
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
