@@ -11,31 +11,35 @@ users-own [
 bases-own [
   capacity
   linked-users
-  signal-range
 ]
 patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 5=OCCUPIED
 
 globals [
-  number-of-user ;; the number of users in the model defined by user input
+  ;population-density ;; represents the denisty of users in the world-area, used to determine the number of users
+  population-scale ;; represents the model:real world ratio
+  number-of-user ;; the number of users in the model defined considering population-density and population-scale
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance-to-nearest-bs? ;; if TRUE the distance to the closest base station for every user is shown
   ;show-patch-weight? ;; if TRUE the (patch weight -> color) mapping is shown
   ;world-area ;; defined by user in km² to improve realistic environment
   patch-side-lenght ;; defined following world-side-lenght, used to track user travel distance in metres
   ;show-distance-to-destination? ;; if TRUE, for each user, the distance to their destination is shown
+  ;show-bs-range? ;; if TRUE, for each Base Station, the signal range is shown
+  _4G-signal-range
+  _5G-signal-range
+  _5G-coverage
+  potential-bs-spots
 ]
 
 to setup
   clear-all
 
-  ;; intialization for real life metrics, since distance is calculated
-  ;; in patches from centre to centre, we can use this measure to convert distance in metres
-  set patch-side-lenght sqrt(world-area * 1000) / (max-pxcor * 2 + 1)
+  setup-world-size
 
+  let number-of-users population-density * world-area * population-scale
   setup-users number-of-users
 
-  let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
-  setup-bases number-of-bs
+  setup-bases
 
   setup-user-bs-links
 
@@ -47,7 +51,7 @@ end
 to go
 
   if not any? users [
-    user-message(word number-of-users " users reached their destination in " ticks " ticks.")
+    ;user-message(word " All users reached their destination in " ticks " ticks.")
     stop
   ]
 
@@ -58,11 +62,32 @@ to go
   display-labels
 end
 
+;; initializes model world and related metrics
+to setup-world-size
+  ;; fixed (model :real world) ratio
+  set population-scale 1 / 1000
+
+  ;; World Box shifts its dimension dynamically to mantain same proportion
+  ;; this gives a zoom-in zoom-out effect
+
+  ;; dynamic world side lenght in #patches
+  let world-side-lenght world-area
+
+  ;; dynamic patch size
+  set-patch-size 350 / world-area
+
+  resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1) (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1)
+
+  ;; intialization for real life metrics, since distance is calculated
+  ;; in patches from centre to centre, we can use this measure to convert distance in metres
+  set patch-side-lenght sqrt(world-area * 1000) / ((abs min-pxcor) * 2)
+end
+
 ;; creates users and initialize their variables
 to setup-users [num-users]
   create-users num-users [
     set shape "person"
-    set size 1
+    set size (log world-area 10) * 2
     set color pink
     move-to one-of patches
 
@@ -91,42 +116,135 @@ to setup-destinations
   ]
 end
 
+to-report is-spot-valid [x y]
+  (ifelse
+    (x < min-pxcor or x > max-pxcor) [ report false ]
+    (y < min-pycor or y > max-pycor) [ report false ]
+    [ report true ]
+  )
+
+end
+
+to find-potential-locations [x y]
+  ;; this is just for readability
+  let var _5G-signal-range
+
+  let xmin x - var
+  let xmax x + var
+  let ymin y - var
+  let ymax y + var
+
+  ;For each base station we need to find these 24 patches, if their coordinates are valid we add them to a list
+  ; '+' points are points defined by the square built around the radius of the 5g signal range
+  ; '-' points are points defined by the square built around the radius of double the 5g signal range
+
+  ;-  -	  -	  -	  -
+  ;
+  ;-	+   +   +	  -
+  ;
+  ;-	+   X   +	  -
+  ;
+  ;-	+   +   +	  -
+  ;
+  ;-	-   -   -	  -
+
+  if(is-spot-valid xmin ymin) [set potential-bs-spots lput patch xmin ymin potential-bs-spots]
+  if(is-spot-valid xmin y) [set potential-bs-spots lput patch xmin y potential-bs-spots]
+  if(is-spot-valid xmin ymax) [set potential-bs-spots lput patch xmin ymax potential-bs-spots]
+  if(is-spot-valid x ymax) [set potential-bs-spots lput patch x ymax potential-bs-spots]
+  if(is-spot-valid xmax ymax) [set potential-bs-spots lput patch xmax ymax potential-bs-spots]
+  if(is-spot-valid xmax y) [set potential-bs-spots lput patch xmax y potential-bs-spots]
+  if(is-spot-valid xmax ymin) [set potential-bs-spots lput patch xmax ymin potential-bs-spots]
+  if(is-spot-valid x ymin) [set potential-bs-spots lput patch x ymin potential-bs-spots]
+
+  if(is-spot-valid (xmin - var) (ymin - var)) [set potential-bs-spots lput patch (xmin - var) (ymin - var) potential-bs-spots]
+  if(is-spot-valid (xmin - var) ymin) [set potential-bs-spots lput patch (xmin - var) ymin potential-bs-spots]
+  if(is-spot-valid (xmin - var) y) [set potential-bs-spots lput patch (xmin - var) y potential-bs-spots]
+  if(is-spot-valid (xmin - var) ymax) [set potential-bs-spots lput patch (xmin - var) ymax potential-bs-spots]
+  if(is-spot-valid (xmin - var) (ymax + var)) [set potential-bs-spots lput patch (xmin - var) (ymax + var) potential-bs-spots]
+  if(is-spot-valid xmin (ymax + var)) [set potential-bs-spots lput patch xmin (ymax + var) potential-bs-spots]
+  if(is-spot-valid x (ymax + var)) [set potential-bs-spots lput patch x (ymax + var) potential-bs-spots]
+  if(is-spot-valid xmax (ymax + var)) [set potential-bs-spots lput patch xmax (ymax + var) potential-bs-spots]
+  if(is-spot-valid (xmax + var) (ymax + var)) [set potential-bs-spots lput patch (xmax + var) (ymax + var) potential-bs-spots]
+  if(is-spot-valid (xmax + var) ymax) [set potential-bs-spots lput patch (xmax + var) ymax potential-bs-spots]
+  if(is-spot-valid (xmax + var) y) [set potential-bs-spots lput patch (xmax + var) y potential-bs-spots]
+  if(is-spot-valid (xmax + var) ymin) [set potential-bs-spots lput patch (xmax + var) ymin potential-bs-spots]
+  if(is-spot-valid (xmax + var) (ymin - var)) [set potential-bs-spots lput patch (xmax + var) (ymin - var) potential-bs-spots]
+  if(is-spot-valid xmax (ymin - var)) [set potential-bs-spots lput patch xmax (ymin - var) potential-bs-spots]
+  if(is-spot-valid x (ymin - var)) [set potential-bs-spots lput patch x (ymin - var) potential-bs-spots]
+  if(is-spot-valid xmin (ymin - var)) [set potential-bs-spots lput patch xmin (ymin - var) potential-bs-spots]
+end
+
 ;; creates base staions, initializes their variables and places them following a Weighted Distribution System
-to setup-bases [num-bases]
-  ;; initialize all patches to Free
+to setup-bases
   ask patches [set weight 0]
+  set _4G-signal-range round 50000 / patch-side-lenght
+  set _5G-signal-range round 250 / patch-side-lenght
+  set potential-bs-spots []
 
-  repeat num-bases [
-    ;; sprout Base Stations on the patches with lowest possible weight
-    ask one-of patches with-min [weight] [ ;; --TO-DO-- improve spreading at low number of bases
-      sprout-bases 1 [
-        set shape "house"
-        set size 1.5
-        set color 33
+  ask one-of patches[
+    sprout-bases 1 [
+      set shape "house"
+      set size (log world-area 10) * 4
+      set color 33
 
-        set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
-        set signal-range round 300 / patch-side-lenght
-        set linked-users 0
-      ]
-      set weight 5
-      ;; update patches' weight of every patch in a radius of 6 from the Base Station
-      ;; 1-2 patches radius -> +4 weight
-      ;; 3-4 patches radius -> +3 weight
-      ;; 5-6 patches radius -> +2 weight
-      ;; 7-8 patches radius -> +1 weight
-      let i 8
-      while [i >= 0] [
-        ask patches in-radius i[
-          if(weight <= 4) [ ;; makes sure weight doesn't exceed the 5 limit
-           set weight weight + 1
-          ]
-        ]
-        set i i - 2
-      ]
-   ]
+      set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
+      set linked-users 0
+    ]
+    ask patches in-radius _4G-signal-range [
+      set weight 1
+    ]
+    ask patches in-radius _5G-signal-range [
+      set weight 2
+    ]
+
+    find-potential-locations [pxcor] of self [pycor] of self
   ]
+  set-color-weight-mapping
+  let target-5G-coverage 75
+  set _5G-coverage count patches with [weight = 2] * 100 / count patches
 
-  ;; update (patch weight -> color) mapping
+  while[_5G-coverage < target-5G-coverage][
+    let potential-locations []
+    let delta-coverage []
+    foreach potential-bs-spots [
+      p ->
+       ask p [
+        set potential-locations lput self potential-locations
+        ask patches in-radius _5G-signal-range [
+          set weight 2
+        ]
+        let current-coverage count patches with [weight = 2] * 100 / count patches
+        set delta-coverage lput (current-coverage - _5G-coverage) delta-coverage
+
+        reset-color-weight-mapping
+       ]
+    ]
+    let max-delta-coverage max delta-coverage
+    let designated-patch-index position max-delta-coverage delta-coverage
+    let designated-patch item designated-patch-index potential-locations
+
+    set potential-bs-spots remove-item designated-patch-index potential-bs-spots
+
+    ask designated-patch [
+      sprout-bases 1 [
+      set shape "house"
+      set size (log world-area 10) * 4
+      set color 33
+
+      set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
+      set linked-users 0
+      ]
+      ask patches in-radius _5G-signal-range [
+        set weight 2
+      ]
+
+      find-potential-locations [pxcor] of self [pycor] of self
+    ]
+
+    set-color-weight-mapping
+    set _5G-coverage count patches with [weight = 2] * 100 / count patches
+  ]
   update-pcolors
 end
 
@@ -215,15 +333,28 @@ to update-pcolors
     [ set pcolor 3 ] ;; dark gray
     [
       (ifelse
-        (weight = 5) [ set pcolor magenta ]
-        (weight = 4) [ set pcolor red ]
-        (weight = 3) [ set pcolor orange ]
-        (weight = 2) [ set pcolor yellow ]
-        (weight = 1) [ set pcolor white ]
+        (weight = 2) [ set pcolor lime ]
+        (weight = 1) [ set pcolor yellow ]
         [ set pcolor 3 ] ;; dark gray
       )
     ]
   ]
+end
+
+to set-color-weight-mapping
+  ask patches [
+    (ifelse
+      (weight = 2) [ set pcolor lime ]
+      (weight = 1) [ set pcolor yellow ]
+      [ set pcolor 3 ] ;; dark gray
+    )
+  ]
+end
+
+to reset-color-weight-mapping
+  ask patches with [pcolor = lime][set weight 2]
+  ask patches with [pcolor = yellow][set weight 1]
+  ask patches with [pcolor = 3][set weight 0]
 end
 
 ;; displays user and base stations properties
@@ -238,16 +369,26 @@ to display-labels
   if show-distance-to-destination? [
     ask users [ set label distance-to-dest ]
   ]
+  if show-bs-range? [
+    ask bases [
+      ask patches in-radius _4G-signal-range [
+        set pcolor yellow
+      ]
+      ask patches in-radius _5G-signal-range [
+        set pcolor lime
+      ]
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 370
-50
-859
-540
+10
+954
+595
 -1
 -1
-13.0
+1.1666666666666667
 1
 10
 1
@@ -257,10 +398,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--18
-18
--18
-18
+-150
+149
+-150
+149
 0
 0
 1
@@ -268,10 +409,10 @@ ticks
 30.0
 
 BUTTON
-100
-160
-181
-193
+95
+120
+176
+153
 Setup
 setup
 NIL
@@ -284,44 +425,33 @@ NIL
 NIL
 1
 
-INPUTBOX
-140
-75
-232
-135
-number-of-users
-250.0
+SWITCH
+80
+215
+287
+248
+show-distance-to-nearest-bs?
+show-distance-to-nearest-bs?
 1
+1
+-1000
+
+SWITCH
+185
+170
+337
+203
+show-linked-users?
+show-linked-users?
 0
-Number
-
-SWITCH
-85
-255
-292
-288
-show-distance-to-nearest-bs?
-show-distance-to-nearest-bs?
-1
 1
 -1000
 
 SWITCH
-190
-210
-342
-243
-show-linked-users?
-show-linked-users?
-1
-1
--1000
-
-SWITCH
-25
-210
-180
-243
+20
+170
+175
+203
 show-patch-weight?
 show-patch-weight?
 1
@@ -329,10 +459,10 @@ show-patch-weight?
 -1000
 
 BUTTON
-190
-160
-270
-193
+185
+120
+265
+153
 Go
 go
 T
@@ -346,17 +476,17 @@ NIL
 0
 
 PLOT
-85
-375
-290
-535
+80
+335
+285
+495
 Users in the system
 time (ticks)
 users (units)
 0.0
-50.0
+100.0
 0.0
-500.0
+1000.0
 true
 true
 "" ""
@@ -364,25 +494,25 @@ PENS
 "Users" 1.0 0 -2064490 true "" "plot count users"
 
 SLIDER
-515
-10
-687
-43
+80
+20
+280
+53
 world-area
 world-area
-1
 100
-50.0
+1000
+300.0
 1
 1
 km²
 HORIZONTAL
 
 SWITCH
-85
-295
-292
-328
+80
+255
+287
+288
 show-distance-to-destination?
 show-distance-to-destination?
 1
@@ -390,14 +520,61 @@ show-distance-to-destination?
 -1000
 
 TEXTBOX
-130
-330
-255
-348
+125
+290
+250
+308
 [Distances are in metres]
 10
 0.0
 1
+
+SWITCH
+115
+505
+252
+538
+show-bs-range?
+show-bs-range?
+1
+1
+-1000
+
+SLIDER
+80
+60
+282
+93
+population-density
+population-density
+1
+7000
+1000.0
+1
+1
+pop./km²
+HORIZONTAL
+
+TEXTBOX
+45
+95
+330
+121
+[Population is scaled following a 1000:1 ratio in the model]
+10
+0.0
+1
+
+MONITOR
+1040
+10
+1167
+63
+5G Coverage (%)
+_5G-coverage
+17
+1
+13
 
 @#$#@#$#@
 ## WHAT IS IT?
