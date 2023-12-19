@@ -28,6 +28,7 @@ globals [
   _4G-signal-range
   _5G-signal-range
   _5G-coverage
+  potential-bs-spots
 ]
 
 to setup
@@ -71,10 +72,10 @@ to setup-world-size
   ;; this gives a zoom-in zoom-out effect
 
   ;; dynamic world side lenght in #patches
-  let world-side-lenght (world-area / 10)
+  let world-side-lenght world-area
 
   ;; dynamic patch size
-  set-patch-size 6000 / world-area
+  set-patch-size 600 / world-area
 
   resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1) (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1)
 
@@ -116,11 +117,71 @@ to setup-destinations
   ]
 end
 
+to-report is-spot-valid [x y]
+  (ifelse
+    (x < min-pxcor or x > max-pxcor) [ report false ]
+    (y < min-pycor or y > max-pycor) [ report false ]
+    [ report true ]
+  )
+
+end
+
+to find-potential-locations [x y]
+  ;; this is just for readability
+  let var _5G-signal-range
+
+  let xmin x - var
+  let xmax x + var
+  let ymin y - var
+  let ymax y + var
+
+  ;For each base station we need to find these 24 patches, if their coordinates are valid we add them to a list
+  ; '+' points are points defined by the square built around the radius of the 5g signal range
+  ; '-' points are points defined by the square built around the radius of double the 5g signal range
+
+  ;-  -	  -	  -	  -
+  ;
+  ;-	+   +   +	  -
+  ;
+  ;-	+   X   +	  -
+  ;
+  ;-	+   +   +	  -
+  ;
+  ;-	-   -   -	  -
+
+  if(is-spot-valid xmin ymin) [set potential-bs-spots lput patch xmin ymin potential-bs-spots]
+  if(is-spot-valid xmin y) [set potential-bs-spots lput patch xmin y potential-bs-spots]
+  if(is-spot-valid xmin ymax) [set potential-bs-spots lput patch xmin ymax potential-bs-spots]
+  if(is-spot-valid x ymax) [set potential-bs-spots lput patch x ymax potential-bs-spots]
+  if(is-spot-valid xmax ymax) [set potential-bs-spots lput patch xmax ymax potential-bs-spots]
+  if(is-spot-valid xmax y) [set potential-bs-spots lput patch xmax y potential-bs-spots]
+  if(is-spot-valid xmax ymin) [set potential-bs-spots lput patch xmax ymin potential-bs-spots]
+  if(is-spot-valid x ymin) [set potential-bs-spots lput patch x ymin potential-bs-spots]
+
+  if(is-spot-valid (xmin - var) (ymin - var)) [set potential-bs-spots lput patch (xmin - var) (ymin - var) potential-bs-spots]
+  if(is-spot-valid (xmin - var) ymin) [set potential-bs-spots lput patch (xmin - var) ymin potential-bs-spots]
+  if(is-spot-valid (xmin - var) y) [set potential-bs-spots lput patch (xmin - var) y potential-bs-spots]
+  if(is-spot-valid (xmin - var) ymax) [set potential-bs-spots lput patch (xmin - var) ymax potential-bs-spots]
+  if(is-spot-valid (xmin - var) (ymax + var)) [set potential-bs-spots lput patch (xmin - var) (ymax + var) potential-bs-spots]
+  if(is-spot-valid xmin (ymax + var)) [set potential-bs-spots lput patch xmin (ymax + var) potential-bs-spots]
+  if(is-spot-valid x (ymax + var)) [set potential-bs-spots lput patch x (ymax + var) potential-bs-spots]
+  if(is-spot-valid xmax (ymax + var)) [set potential-bs-spots lput patch xmax (ymax + var) potential-bs-spots]
+  if(is-spot-valid (xmax + var) (ymax + var)) [set potential-bs-spots lput patch (xmax + var) (ymax + var) potential-bs-spots]
+  if(is-spot-valid (xmax + var) ymax) [set potential-bs-spots lput patch (xmax + var) ymax potential-bs-spots]
+  if(is-spot-valid (xmax + var) y) [set potential-bs-spots lput patch (xmax + var) y potential-bs-spots]
+  if(is-spot-valid (xmax + var) ymin) [set potential-bs-spots lput patch (xmax + var) ymin potential-bs-spots]
+  if(is-spot-valid (xmax + var) (ymin - var)) [set potential-bs-spots lput patch (xmax + var) (ymin - var) potential-bs-spots]
+  if(is-spot-valid xmax (ymin - var)) [set potential-bs-spots lput patch xmax (ymin - var) potential-bs-spots]
+  if(is-spot-valid x (ymin - var)) [set potential-bs-spots lput patch x (ymin - var) potential-bs-spots]
+  if(is-spot-valid xmin (ymin - var)) [set potential-bs-spots lput patch xmin (ymin - var) potential-bs-spots]
+end
+
 ;; creates base staions, initializes their variables and places them following a Weighted Distribution System
 to setup-bases
   ask patches [set weight 0]
   set _4G-signal-range round 50000 / patch-side-lenght
   set _5G-signal-range round 250 / patch-side-lenght
+  set potential-bs-spots []
 
   ask one-of patches[
     sprout-bases 1 [
@@ -137,6 +198,8 @@ to setup-bases
     ask patches in-radius _5G-signal-range [
       set weight 2
     ]
+
+    find-potential-locations [pxcor] of self [pycor] of self
   ]
   set-color-weight-mapping
   let target-5G-coverage 75
@@ -145,22 +208,26 @@ to setup-bases
   while[_5G-coverage < target-5G-coverage][
     let potential-locations []
     let delta-coverage []
+    foreach potential-bs-spots [
+      p ->
+       ask p [
+        set potential-locations lput self potential-locations
+        ask patches in-radius _5G-signal-range [
+          set weight 2
+        ]
+        let current-coverage count patches with [weight = 2] * 100 / count patches
+        set delta-coverage lput (current-coverage - _5G-coverage) delta-coverage
 
-    ask patches with [weight = 1][
-      set potential-locations lput self potential-locations
-      ask patches in-radius _5G-signal-range [
-        set weight 2
-      ]
-      let current-coverage count patches with [weight = 2] * 100 / count patches
-      set delta-coverage lput (current-coverage - _5G-coverage) delta-coverage
-
-      reset-color-weight-mapping
+        reset-color-weight-mapping
+       ]
     ]
     let max-delta-coverage max delta-coverage
-    let designed-patch-index position max-delta-coverage delta-coverage
-    let designed-patch item designed-patch-index potential-locations
+    let designated-patch-index position max-delta-coverage delta-coverage
+    let designated-patch item designated-patch-index potential-locations
 
-    ask designed-patch [
+    set potential-bs-spots remove-item designated-patch-index potential-bs-spots
+
+    ask designated-patch [
       sprout-bases 1 [
       set shape "house"
       set size 1.5
@@ -172,7 +239,10 @@ to setup-bases
       ask patches in-radius _5G-signal-range [
         set weight 2
       ]
+
+      find-potential-locations [pxcor] of self [pycor] of self
     ]
+
     set-color-weight-mapping
     set _5G-coverage count patches with [weight = 2] * 100 / count patches
   ]
@@ -315,11 +385,11 @@ end
 GRAPHICS-WINDOW
 370
 10
-978
-619
+975
+616
 -1
 -1
-6.0
+1.8237082066869301
 1
 10
 1
@@ -329,10 +399,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--50
-49
--50
-49
+-164
+163
+-164
+163
 0
 0
 1
@@ -433,7 +503,7 @@ world-area
 world-area
 100
 1000
-1000.0
+329.0
 1
 1
 km²
@@ -480,7 +550,7 @@ population-density
 population-density
 1
 7000
-937.0
+1000.0
 1
 1
 pop./km²
