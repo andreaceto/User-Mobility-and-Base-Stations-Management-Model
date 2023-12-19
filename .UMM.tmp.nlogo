@@ -39,7 +39,6 @@ to setup
   let number-of-users population-density * world-area * population-scale
   setup-users number-of-users
 
-  ;let number-of-bs round number-of-users / 100 * 10 ;; --TO BE UPDATED--
   setup-bases
 
   setup-user-bs-links
@@ -75,7 +74,7 @@ to setup-world-size
   let world-side-lenght world-area
 
   ;; dynamic patch size
-  set-patch-size 600 / world-area
+  set-patch-size 350 / world-area
 
   resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1) (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1)
 
@@ -88,7 +87,7 @@ end
 to setup-users [num-users]
   create-users num-users [
     set shape "person"
-    set size 1
+    set size (log world-area 10) * 2
     set color pink
     move-to one-of patches
 
@@ -186,7 +185,7 @@ to setup-bases
   ask one-of patches[
     sprout-bases 1 [
       set shape "house"
-      set size 1.5
+      set size (log world-area 10) * 4
       set color 33
 
       set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
@@ -230,7 +229,7 @@ to setup-bases
     ask designated-patch [
       sprout-bases 1 [
       set shape "house"
-      set size 1.5
+
       set color 33
 
       set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
@@ -385,11 +384,11 @@ end
 GRAPHICS-WINDOW
 370
 10
-978
-619
+954
+595
 -1
 -1
-6.0
+1.1666666666666667
 1
 10
 1
@@ -399,10 +398,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--50
-49
--50
-49
+-150
+149
+-150
+149
 0
 0
 1
@@ -455,7 +454,7 @@ SWITCH
 203
 show-patch-weight?
 show-patch-weight?
-0
+1
 1
 -1000
 
@@ -503,7 +502,7 @@ world-area
 world-area
 100
 1000
-1000.0
+300.0
 1
 1
 km²
