@@ -12,7 +12,10 @@ bases-own [
   capacity
   linked-users
 ]
-patches-own [weight] ;; Helps weight patches to evenly space Base Stations: 0=FREE --> 5=OCCUPIED
+patches-own [
+  weight ;; helps with the Base Stations distribution based on 5G coverage
+  cost ;; weight related, fundamental to determine the path users follow to reach their destination
+]
 
 globals [
   ;population-density ;; represents the denisty of users in the world-area, used to determine the number of users
@@ -20,8 +23,7 @@ globals [
   number-of-user ;; the number of users in the model defined considering population-density and population-scale
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance-to-nearest-bs? ;; if TRUE the distance to the closest base station for every user is shown
-  ;show-patch-weight? ;; if TRUE the (patch weight -> color) mapping is shown
-  ;world-area ;; defined by user in km² to improve realistic environment
+  world-area ;; fixed world-area defined at setup in km²
   patch-side-lenght ;; defined following world-side-lenght, used to track user travel distance in metres
   ;show-distance-to-destination? ;; if TRUE, for each user, the distance to their destination is shown
   ;show-bs-range? ;; if TRUE, for each Base Station, the signal range is shown
@@ -34,14 +36,18 @@ globals [
 to setup
   clear-all
 
-  setup-world-size
+  setup-world-metrics
 
   let number-of-users population-density * world-area * population-scale
   setup-users number-of-users
 
   setup-bases
 
+  setup-patches-cost
+
   setup-user-bs-links
+
+  test-algorithm
 
   display-labels
 
@@ -63,31 +69,28 @@ to go
 end
 
 ;; initializes model world and related metrics
-to setup-world-size
-  ;; fixed (model :real world) ratio
-  set population-scale 1 / 1000
-
-  ;; World Box shifts its dimension dynamically to mantain same proportion
-  ;; this gives a zoom-in zoom-out effect
-
-  ;; dynamic world side lenght in #patches
-  let world-side-lenght world-area
-
-  ;; dynamic patch size
-  set-patch-size 350 / world-area
+to setup-world-metrics
+  ;; fixed (model : real world) ratio
+  set population-scale 1 / 100
+  ;; fixed world area in km², variable is defined so that it's easier to change all related metrics
+  set world-area 1
+  ;; adjustable world side lenght in #patches
+  let world-side-lenght world-area * 100
+  ;; adjustable patch size
+  set-patch-size 600 / world-side-lenght
 
   resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1) (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1)
 
   ;; intialization for real life metrics, since distance is calculated
   ;; in patches from centre to centre, we can use this measure to convert distance in metres
-  set patch-side-lenght sqrt(world-area * 1000) / ((abs min-pxcor) * 2)
+  set patch-side-lenght sqrt(world-area * 1000000) / world-side-lenght
 end
 
 ;; creates users and initialize their variables
 to setup-users [num-users]
   create-users num-users [
     set shape "person"
-    set size (log world-area 10) * 2
+    set size 2
     set color pink
     move-to one-of patches
 
@@ -116,6 +119,7 @@ to setup-destinations
   ]
 end
 
+;; reports wether a potential Base Station spawn spot is within world borders
 to-report is-spot-valid [x y]
   (ifelse
     (x < min-pxcor or x > max-pxcor) [ report false ]
@@ -125,6 +129,7 @@ to-report is-spot-valid [x y]
 
 end
 
+;; find potential patches to sprout a Base Station
 to find-potential-locations [x y]
   ;; this is just for readability
   let var _5G-signal-range
@@ -175,17 +180,39 @@ to find-potential-locations [x y]
   if(is-spot-valid xmin (ymin - var)) [set potential-bs-spots lput patch xmin (ymin - var) potential-bs-spots]
 end
 
+;; updates color-weight mapping
+to update-color-weight-mapping
+  ask patches [
+    (ifelse
+      (weight = 2) [ set pcolor lime ]
+      (weight = 1) [ set pcolor yellow ]
+      [ set pcolor 3 ] ;; dark gray
+    )
+  ]
+end
+
+;; resets color-weight mapping,
+;; useful in the Base Station setup while analyzing potential spots coverage improvement.
+;; Since colors are not updated during analysis, this procedure works as a "load last saved mapping".
+to reset-color-weight-mapping
+  ask patches with [pcolor = lime][set weight 2]
+  ask patches with [pcolor = yellow][set weight 1]
+  ask patches with [pcolor = 3][set weight 0]
+end
+
 ;; creates base staions, initializes their variables and places them following a Weighted Distribution System
 to setup-bases
+  ;; initialization
   ask patches [set weight 0]
   set _4G-signal-range round 50000 / patch-side-lenght
   set _5G-signal-range round 250 / patch-side-lenght
   set potential-bs-spots []
 
+  ;; first BS is placed randomly to improve variety in world generation
   ask one-of patches[
     sprout-bases 1 [
       set shape "house"
-      set size (log world-area 10) * 4
+      set size 5
       set color 33
 
       set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
@@ -200,13 +227,17 @@ to setup-bases
 
     find-potential-locations [pxcor] of self [pycor] of self
   ]
-  set-color-weight-mapping
+  update-color-weight-mapping
   let target-5G-coverage 75
   set _5G-coverage count patches with [weight = 2] * 100 / count patches
 
+  ;; while the 5G coverage doesn't meet the target we keep placing new BS
   while[_5G-coverage < target-5G-coverage][
     let potential-locations []
+    ;; improvement in coverage
     let delta-coverage []
+
+    ;; foreach potential spot we analyze the improvement in coverage
     foreach potential-bs-spots [
       p ->
        ask p [
@@ -220,6 +251,7 @@ to setup-bases
         reset-color-weight-mapping
        ]
     ]
+    ;; after the anlysis is complete we ask the patch that guarantees the most improvement in coverage to sprout a new BS
     let max-delta-coverage max delta-coverage
     let designated-patch-index position max-delta-coverage delta-coverage
     let designated-patch item designated-patch-index potential-locations
@@ -229,7 +261,7 @@ to setup-bases
     ask designated-patch [
       sprout-bases 1 [
       set shape "house"
-      set size (log world-area 10) * 4
+      set size 5
       set color 33
 
       set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
@@ -242,10 +274,20 @@ to setup-bases
       find-potential-locations [pxcor] of self [pycor] of self
     ]
 
-    set-color-weight-mapping
+    update-color-weight-mapping
     set _5G-coverage count patches with [weight = 2] * 100 / count patches
   ]
   update-pcolors
+end
+
+;; setups patch costs useful to path finding algorithm
+to setup-patches-cost
+  ;; 5G covered patches cost less to go through
+  ask patches [
+    ifelse weight = 2
+    [set cost 1]
+    [set cost 4]
+  ]
 end
 
 ;; finds nearest Base Station for every user and sets related property
@@ -271,24 +313,6 @@ to setup-user-bs-links
 
   ;; update linked-users counter for every Base Station
   update-linked-users
-end
-
-;; makes users move towards their destination
-to reach-destination ;; --TO BE UPDATED--
-
-  let dest [destination] of self
-
-  ;; when users reach their destination we stop considering them
-  if(patch-here = dest) [die]
-
-  ;; at each step the user moves to the neighbor patch closest to the destination
-  move-to min-one-of neighbors [distance dest]
-
-  ;; updates distance to destination at each step
-  ;; that older distance is just decreased by a patch-side-lenght
-  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
-  ;; but that equals a patch-side-lenght distance traveled since patch are squares
-  set distance-to-dest round(distance-to-dest - patch-side-lenght)
 end
 
 ;; updates links between users and nearest Base Stations -if needed- and all related properties
@@ -329,7 +353,7 @@ end
 ;; updates patches color to help visualize weighted distribution system
 to update-pcolors
   ask patches [
-    ifelse not show-patch-weight?
+    ifelse not show-bs-range?
     [ set pcolor 3 ] ;; dark gray
     [
       (ifelse
@@ -341,20 +365,119 @@ to update-pcolors
   ]
 end
 
-to set-color-weight-mapping
-  ask patches [
-    (ifelse
-      (weight = 2) [ set pcolor lime ]
-      (weight = 1) [ set pcolor yellow ]
-      [ set pcolor 3 ] ;; dark gray
-    )
+to-report find-lowest-cost-path [ source dest ]
+  let paths (list (list source))
+  let estimated-costs (list [distance dest ] of source)
+  let path first paths
+
+  let visited patch-set source
+  let encountered patch-set source
+
+  while [ source != dest ] [
+    let estimated-cost min estimated-costs
+    let path-index position estimated-cost estimated-costs
+    set path item path-index paths
+    set source last path
+    let path-cost estimated-cost - [ distance dest ] of source
+    let source-cost [cost] of source
+
+    set paths remove-item path-index paths
+    set estimated-costs remove-item path-index estimated-costs
+
+    set visited (patch-set source visited)
+
+    ask [ neighbors with [ not member? self visited ] ] of source [
+      ;let patch-cost runresult get-cost
+      let patch-cost [cost] of self
+      let step-cost distance source * (patch-cost + source-cost) / 2
+      let est-cost path-cost + step-cost + distance dest
+
+      let add? true
+
+      if member? self encountered [
+        let other-path false
+        foreach paths [
+          p ->
+          if last p = self [
+            set other-path p
+          ]
+        ]
+        if other-path != false [
+          let other-path-index position other-path paths
+          let other-path-cost item other-path-index estimated-costs
+          ifelse other-path-cost < est-cost [
+            set add? false
+          ] [
+            set paths remove-item other-path-index paths
+            set estimated-costs remove-item other-path-index estimated-costs
+          ]
+        ]
+      ]
+
+      if add? [
+        set estimated-costs fput est-cost estimated-costs
+        set paths fput (lput self path) paths
+
+        set encountered (patch-set self encountered)
+      ]
+    ]
+  ]
+  report path
+end
+
+;; makes users move towards their destination
+to reach-destination ;; --TO BE UPDATED--
+
+  let dest [destination] of self
+
+  ;; when users reach their destination we stop considering them
+  if(patch-here = dest) [die]
+
+  ;; at each step the user moves to the neighbor patch closest to the destination
+  move-to min-one-of neighbors [distance dest]
+
+  ;; updates distance to destination at each step
+  ;; that older distance is just decreased by a patch-side-lenght
+  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
+  ;; but that equals a patch-side-lenght distance traveled since patch are squares
+  set distance-to-dest round(distance-to-dest - patch-side-lenght)
+end
+
+to test-algorithm
+  ask one-of users [
+    let lowest-cost-path find-lowest-cost-path patch-here destination
+    foreach lowest-cost-path [
+      p ->
+       ask p [
+        (ifelse
+          (p = last lowest-cost-path) [ sprout 1 [ set shape "target" set size 3 set color red] ]
+          [ set pcolor green ]
+        )
+      ]
+    ]
+
+    let shortest-path find-shortest-path
+    foreach shortest-path [
+      p -> ask p [set pcolor red]
+    ]
   ]
 end
 
-to reset-color-weight-mapping
-  ask patches with [pcolor = lime][set weight 2]
-  ask patches with [pcolor = yellow][set weight 1]
-  ask patches with [pcolor = 3][set weight 0]
+to-report find-shortest-path
+
+  let starting-pos patch-here
+
+  let dest [destination] of self
+  let path []
+
+  while[patch-here != dest][
+    set path lput patch-here path
+    ;; at each step the user moves to the neighbor patch closest to the destination
+    move-to min-one-of neighbors [distance dest]
+  ]
+
+  move-to starting-pos
+  report path
 end
 
 ;; displays user and base stations properties
@@ -369,26 +492,16 @@ to display-labels
   if show-distance-to-destination? [
     ask users [ set label distance-to-dest ]
   ]
-  if show-bs-range? [
-    ask bases [
-      ask patches in-radius _4G-signal-range [
-        set pcolor yellow
-      ]
-      ask patches in-radius _5G-signal-range [
-        set pcolor lime
-      ]
-    ]
-  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 370
 10
-954
-595
+978
+619
 -1
 -1
-1.1666666666666667
+6.0
 1
 10
 1
@@ -398,10 +511,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--150
-149
--150
-149
+-50
+49
+-50
+49
 0
 0
 1
@@ -447,17 +560,6 @@ show-linked-users?
 1
 -1000
 
-SWITCH
-20
-170
-175
-203
-show-patch-weight?
-show-patch-weight?
-1
-1
--1000
-
 BUTTON
 185
 120
@@ -486,27 +588,12 @@ users (units)
 0.0
 100.0
 0.0
-1000.0
+100.0
 true
 true
 "" ""
 PENS
 "Users" 1.0 0 -2064490 true "" "plot count users"
-
-SLIDER
-80
-20
-280
-53
-world-area
-world-area
-100
-1000
-300.0
-1
-1
-km²
-HORIZONTAL
 
 SWITCH
 80
@@ -530,10 +617,10 @@ TEXTBOX
 1
 
 SWITCH
-115
-505
-252
-538
+25
+170
+175
+203
 show-bs-range?
 show-bs-range?
 1
@@ -549,7 +636,7 @@ population-density
 population-density
 1
 7000
-1000.0
+3500.0
 1
 1
 pop./km²
@@ -560,7 +647,7 @@ TEXTBOX
 95
 330
 121
-[Population is scaled following a 1000:1 ratio in the model]
+[Population is scaled following a 100:1 ratio in the model]
 10
 0.0
 1
@@ -575,6 +662,16 @@ _5G-coverage
 17
 1
 13
+
+TEXTBOX
+105
+30
+255
+46
+World Area is fixed to 1 km²
+12
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -841,9 +938,9 @@ target
 false
 0
 Circle -7500403 true true 0 0 300
-Circle -16777216 true false 30 30 240
+Circle -1 true false 30 30 240
 Circle -7500403 true true 60 60 180
-Circle -16777216 true false 90 90 120
+Circle -1 true false 90 90 120
 Circle -7500403 true true 120 120 60
 
 tree
