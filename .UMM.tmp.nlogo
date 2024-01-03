@@ -24,13 +24,14 @@ globals [
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
   ;show-distance-to-nearest-bs? ;; if TRUE the distance to the closest base station for every user is shown
   world-area ;; fixed world-area defined at setup in km²
-  patch-side-lenght ;; defined following world-side-lenght, used to track user travel distance in metres
-  ;show-distance-to-destination? ;; if TRUE, for each user, the distance to their destination is shown
+  patch-side-length ;; defined following world-side-length, used to track user travel distance in metres
   ;show-bs-range? ;; if TRUE, for each Base Station, the signal range is shown
   _4G-signal-range
   _5G-signal-range
   _5G-coverage
+  ;target-5G-coverage ;; defined by user to create different scenarios of world generation, Base Station are created and placed accordingly
   potential-bs-spots
+  ;show-path-difference? ;; if TRUE, both shortest-path and lowest-cost-path are shown
 ]
 
 to setup
@@ -46,8 +47,6 @@ to setup
   setup-patches-cost
 
   setup-user-bs-links
-
-  test-algorithm
 
   display-labels
 
@@ -74,16 +73,16 @@ to setup-world-metrics
   set population-scale 1 / 100
   ;; fixed world area in km², variable is defined so that it's easier to change all related metrics
   set world-area 1
-  ;; adjustable world side lenght in #patches
-  let world-side-lenght world-area * 100
+  ;; adjustable world side length in #patches
+  let world-side-length world-area * 100
   ;; adjustable patch size
-  set-patch-size 600 / world-side-lenght
+  set-patch-size 600 / world-side-length
 
-  resize-world (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1) (world-side-lenght / 2 * -1) (world-side-lenght / 2 - 1)
+  resize-world (world-side-length / 2 * -1) (world-side-length / 2 - 1) (world-side-length / 2 * -1) (world-side-length / 2 - 1)
 
   ;; intialization for real life metrics, since distance is calculated
   ;; in patches from centre to centre, we can use this measure to convert distance in metres
-  set patch-side-lenght sqrt(world-area * 1000000) / world-side-lenght
+  set patch-side-length sqrt(world-area * 1000000) / world-side-length
 end
 
 ;; creates users and initialize their variables
@@ -110,11 +109,11 @@ to setup-destinations
 
   ask users [
     ;; makes sure the generated destination it's not to close
-    while[distance-to-dest < (5 * patch-side-lenght)] [
+    while[distance-to-dest < (5 * patch-side-length)] [
       ;; makes sure the generated destination it's on the borders
       set destination-patch one-of patches with [abs pxcor = max-pxcor or abs pycor = max-pycor]
       set destination destination-patch
-      set distance-to-dest round((distance destination-patch) * patch-side-lenght)
+      set distance-to-dest round((distance destination-patch) * patch-side-length)
     ]
   ]
 end
@@ -204,8 +203,8 @@ end
 to setup-bases
   ;; initialization
   ask patches [set weight 0]
-  set _4G-signal-range round 50000 / patch-side-lenght
-  set _5G-signal-range round 250 / patch-side-lenght
+  set _4G-signal-range round 50000 / patch-side-length
+  set _5G-signal-range round 250 / patch-side-length
   set potential-bs-spots []
 
   ;; first BS is placed randomly to improve variety in world generation
@@ -228,7 +227,7 @@ to setup-bases
     find-potential-locations [pxcor] of self [pycor] of self
   ]
   update-color-weight-mapping
-  let target-5G-coverage 75
+
   set _5G-coverage count patches with [weight = 2] * 100 / count patches
 
   ;; while the 5G coverage doesn't meet the target we keep placing new BS
@@ -308,7 +307,7 @@ to setup-user-bs-links
     set linked-bs nearest-bs
 
     ;; set the distance-to-nearest-base-station variable
-    set distance-to-nearest-bs (distance nearest-bs) * patch-side-lenght
+    set distance-to-nearest-bs (distance nearest-bs) * patch-side-length
   ]
 
   ;; update linked-users counter for every Base Station
@@ -336,7 +335,7 @@ to update-user-bs-links
     ]
 
     ;; in any case the distance to the nearest-bs is updated following user movement
-    set distance-to-nearest-bs (distance nearest-bs) * patch-side-lenght
+    set distance-to-nearest-bs (distance nearest-bs) * patch-side-length
   ]
 
   ;; update linked-users counter for every Base Station
@@ -365,6 +364,7 @@ to update-pcolors
   ]
 end
 
+;; A* algortithm implementation for lowest-cost-path finding
 to-report find-lowest-cost-path [ source dest ]
   let paths (list (list source))
   let estimated-costs (list [distance dest ] of source)
@@ -425,44 +425,6 @@ to-report find-lowest-cost-path [ source dest ]
   report path
 end
 
-;; makes users move towards their destination
-to reach-destination ;; --TO BE UPDATED--
-
-  let dest [destination] of self
-
-  ;; when users reach their destination we stop considering them
-  if(patch-here = dest) [die]
-
-  ;; at each step the user moves to the neighbor patch closest to the destination
-  move-to min-one-of neighbors [distance dest]
-
-  ;; updates distance to destination at each step
-  ;; that older distance is just decreased by a patch-side-lenght
-  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
-  ;; but that equals a patch-side-lenght distance traveled since patch are squares
-  set distance-to-dest round(distance-to-dest - patch-side-lenght)
-end
-
-to test-algorithm
-  ask one-of users [
-    let lowest-cost-path find-lowest-cost-path patch-here destination
-    foreach lowest-cost-path [
-      p ->
-       ask p [
-        (ifelse
-          (p = last lowest-cost-path) [ sprout 1 [ set shape "target" set size 3 set color red] ]
-          [ set pcolor  ]
-        )
-      ]
-    ]
-
-    let shortest-path find-shortest-path
-    foreach shortest-path [
-      p -> ask p [set pcolor red]
-    ]
-  ]
-end
-
 to-report find-shortest-path
 
   let starting-pos patch-here
@@ -480,6 +442,51 @@ to-report find-shortest-path
   report path
 end
 
+;; makes users move towards their destination
+to reach-destination ;; --TO BE UPDATED--
+
+  let dest [destination] of self
+
+  ;; when users reach their destination we stop considering them
+  if(patch-here = dest) [die]
+
+  ;; at each step the user moves to the neighbor patch closest to the destination
+  move-to min-one-of neighbors [distance dest]
+
+  ;; updates distance to destination at each step
+  ;; that older distance is just decreased by a patch-side-length
+  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
+  ;; but that equals a patch-side-length distance traveled since patch are squares
+  set distance-to-dest round(distance-to-dest - patch-side-length)
+end
+
+to display-path-difference
+  ask one-of users with [distance-to-dest > 300][
+    let lowest-cost-path find-lowest-cost-path patch-here destination
+    foreach lowest-cost-path [
+      p ->
+       ask p [
+        (ifelse
+          (p = last lowest-cost-path) [ sprout 1 [ set shape "target" set size 3 set color red] ]
+          (p = item ((length lowest-cost-path) / 2) lowest-cost-path) [ set plabel word (length lowest-cost-path * patch-side-length) "m" set plabel-color 57]
+          [ set pcolor green ]
+        )
+      ]
+    ]
+
+    let shortest-path find-shortest-path
+    foreach shortest-path [
+      p ->
+       ask p [
+        (ifelse
+          (p = item ((length shortest-path) / 2) shortest-path) [ set plabel word (length shortest-path * patch-side-length) "m" set plabel-color 17]
+          [ set pcolor red ]
+        )
+      ]
+    ]
+  ]
+end
+
 ;; displays user and base stations properties
 to display-labels
   ask turtles [ set label "" ]
@@ -489,21 +496,19 @@ to display-labels
   if show-distance-to-nearest-bs? [
     ask users [ set label round distance-to-nearest-bs ]
   ]
-  if show-distance-to-destination? [
-    ask users [ set label distance-to-dest ]
-  ]
+  if show-path-difference? [ display-path-difference ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-370
+380
 10
-978
+988
 619
 -1
 -1
 6.0
 1
-10
+15
 1
 1
 1
@@ -556,7 +561,7 @@ SWITCH
 203
 show-linked-users?
 show-linked-users?
-0
+1
 1
 -1000
 
@@ -595,22 +600,11 @@ true
 PENS
 "Users" 1.0 0 -2064490 true "" "plot count users"
 
-SWITCH
-80
-255
-287
-288
-show-distance-to-destination?
-show-distance-to-destination?
-1
-1
--1000
-
 TEXTBOX
 125
-290
+295
 250
-308
+313
 [Distances are in metres]
 10
 0.0
@@ -653,10 +647,10 @@ TEXTBOX
 1
 
 MONITOR
-1040
-10
-1167
-63
+1020
+55
+1147
+108
 5G Coverage (%)
 _5G-coverage
 17
@@ -670,6 +664,62 @@ TEXTBOX
 46
 World Area is fixed to 1 km²
 12
+0.0
+1
+
+SWITCH
+80
+255
+285
+288
+show-path-difference?
+show-path-difference?
+0
+1
+-1000
+
+TEXTBOX
+285
+255
+435
+273
+[shortest-path]
+10
+15.0
+1
+
+TEXTBOX
+285
+275
+435
+293
+[lowest-cost-path]
+10
+55.0
+1
+
+SLIDER
+995
+15
+1167
+48
+target-5G-coverage
+target-5G-coverage
+25
+75
+50.0
+25
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+1255
+25
+1405
+51
+!!this represents a treshold and not a precise target!!
+10
 0.0
 1
 
