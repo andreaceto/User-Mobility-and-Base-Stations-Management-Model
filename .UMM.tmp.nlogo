@@ -7,6 +7,7 @@ users-own [
   linked-bs
   destination
   distance-to-dest
+  path-to-dest
 ]
 bases-own [
   capacity
@@ -48,6 +49,8 @@ to setup
 
   setup-user-bs-links
 
+  compute-paths
+
   display-labels
 
   reset-ticks
@@ -64,7 +67,7 @@ to go
 
   tick
   update-user-bs-links
-  display-labels
+  update-labels
 end
 
 ;; initializes model world and related metrics
@@ -98,6 +101,7 @@ to setup-users [num-users]
     set linked-bs nobody
     set destination nobody
     set distance-to-dest -1
+    set path-to-dest []
   ]
   setup-destinations
 end
@@ -210,8 +214,8 @@ to setup-bases
   ;; first BS is placed randomly to improve variety in world generation
   ask one-of patches[
     sprout-bases 1 [
-      set shape "house"
-      set size 5
+      set shape "basestation"
+      set size 10
       set color 33
 
       set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
@@ -259,9 +263,9 @@ to setup-bases
 
     ask designated-patch [
       sprout-bases 1 [
-      set shape "house"
-      set size 5
-      set color 33
+      set shape "basestation"
+      set size 10
+      set color 3
 
       set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
       set linked-users 0
@@ -442,22 +446,36 @@ to-report find-shortest-path
   report path
 end
 
+;; calculate lowest cost paths for every user
+to compute-paths
+  ask users [
+    set path-to-dest find-lowest-cost-path patch-here destination
+  ]
+end
+
 ;; makes users move towards their destination
 to reach-destination ;; --TO BE UPDATED--
 
-  let dest [destination] of self
+  if(patch-here = last path-to-dest)[ die ]
 
-  ;; when users reach their destination we stop considering them
-  if(patch-here = dest) [die]
+  let current-position position patch-here path-to-dest
+  let next-patch item (current-position + 1) path-to-dest
 
-  ;; at each step the user moves to the neighbor patch closest to the destination
-  move-to min-one-of neighbors [distance dest]
+  move-to next-patch
 
-  ;; updates distance to destination at each step
-  ;; that older distance is just decreased by a patch-side-length
-  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
-  ;; but that equals a patch-side-length distance traveled since patch are squares
-  set distance-to-dest round(distance-to-dest - patch-side-length)
+;  let dest [destination] of self
+;
+;  ;; when users reach their destination we stop considering them
+;  if(patch-here = dest) [die]
+;
+;  ;; at each step the user moves to the neighbor patch closest to the destination
+;  move-to min-one-of neighbors [distance dest]
+;
+;  ;; updates distance to destination at each step
+;  ;; that older distance is just decreased by a patch-side-length
+;  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
+;  ;; but that equals a patch-side-length distance traveled since patch are squares
+;  set distance-to-dest round(distance-to-dest - patch-side-length)
 end
 
 to display-path-difference
@@ -467,6 +485,7 @@ to display-path-difference
       p ->
        ask p [
         (ifelse
+          (p = first lowest-cost-path) [ sprout 1 [ set shape "flag" set size 3 set color white] ]
           (p = last lowest-cost-path) [ sprout 1 [ set shape "target" set size 3 set color red] ]
           (p = item ((length lowest-cost-path) / 2) lowest-cost-path) [ set plabel word (length lowest-cost-path * patch-side-length) "m" set plabel-color 57]
           [ set pcolor green ]
@@ -497,6 +516,17 @@ to display-labels
     ask users [ set label round distance-to-nearest-bs ]
   ]
   if show-path-difference? [ display-path-difference ]
+end
+
+;; updates user and base stations properties
+to update-labels
+  ask turtles [ set label "" ]
+  if show-linked-users? [
+    ask bases [ set label linked-users ]
+  ]
+  if show-distance-to-nearest-bs? [
+    ask users [ set label round distance-to-nearest-bs ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -647,10 +677,10 @@ TEXTBOX
 1
 
 MONITOR
-1020
-55
-1147
-108
+1055
+90
+1182
+143
 5G Coverage (%)
 _5G-coverage
 17
@@ -699,25 +729,25 @@ TEXTBOX
 1
 
 SLIDER
-995
-15
-1167
-48
+1035
+30
+1207
+63
 target-5G-coverage
 target-5G-coverage
 25
 75
-50.0
+75.0
 25
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-1255
-25
-1405
-51
+1000
+15
+1250
+41
 !!this represents a treshold and not a precise target!!
 10
 0.0
@@ -774,6 +804,26 @@ arrow
 true
 0
 Polygon -7500403 true true 150 0 0 150 105 150 105 293 195 293 195 150 300 150
+
+basestation
+false
+6
+Rectangle -7500403 true false 141 91 160 256
+Polygon -7500403 true false 59 256 80 243 89 246 101 256
+Polygon -7500403 false false 90 198 150 228 210 198 150 183
+Polygon -7500403 false false 101 144 150 171 198 144 150 126
+Polygon -7500403 false false 94 172 151 201 205 172 150 156
+Polygon -7500403 true false 172 91 188 85 225 247 210 251
+Polygon -7500403 true false 128 91 112 85 75 247 90 251
+Polygon -7500403 true false 241 256 220 243 211 246 199 256
+Polygon -7500403 true false 143 251 158 251 173 266 128 266
+Rectangle -7500403 true false 62 53 240 60
+Rectangle -7500403 true false 225 30 240 90
+Rectangle -7500403 true false 60 30 75 90
+Rectangle -7500403 true false 203 38 215 78
+Rectangle -7500403 true false 85 38 97 78
+Polygon -13840069 true true 156 26 151 42 114 41 110 55 148 56 137 94 80 94 86 79 122 79 125 67 91 67 105 26
+Polygon -13840069 true true 216 26 158 26 140 94 199 95 209 59 171 59 168 71 191 72 189 80 161 80 169 44 210 44
 
 box
 false
@@ -884,6 +934,24 @@ Rectangle -7500403 true true 60 15 75 300
 Polygon -7500403 true true 90 150 270 90 90 30
 Line -7500403 true 75 135 90 135
 Line -7500403 true 75 45 90 45
+Rectangle -7500403 true true 90 15 300 165
+Rectangle -16777216 true false 90 45 120 75
+Rectangle -16777216 true false 90 105 120 135
+Rectangle -16777216 true false 120 135 150 165
+Rectangle -16777216 true false 120 75 150 105
+Rectangle -16777216 true false 120 15 150 45
+Rectangle -16777216 true false 150 45 180 75
+Rectangle -16777216 true false 150 105 180 135
+Rectangle -16777216 true false 180 135 210 165
+Rectangle -16777216 true false 180 75 210 105
+Rectangle -16777216 true false 180 15 210 45
+Rectangle -16777216 true false 210 45 240 75
+Rectangle -16777216 true false 210 105 240 135
+Rectangle -16777216 true false 240 135 270 165
+Rectangle -16777216 true false 240 75 270 105
+Rectangle -16777216 true false 240 15 270 45
+Rectangle -16777216 true false 270 45 300 75
+Rectangle -16777216 true false 270 105 300 135
 
 flower
 false
