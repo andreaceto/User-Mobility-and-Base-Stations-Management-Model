@@ -57,7 +57,7 @@ to setup
 end
 
 to go
-
+  if any? turtles with [shape = "target"] [ clear-paths-difference]
   if not any? users [
     ;user-message(word " All users reached their destination in " ticks " ticks.")
     stop
@@ -478,7 +478,7 @@ to reach-destination ;; --TO BE UPDATED--
 ;  set distance-to-dest round(distance-to-dest - patch-side-length)
 end
 
-to display-path-difference
+to display-paths-difference
   ask one-of users with [distance-to-dest > 300][
     let lowest-cost-path find-lowest-cost-path patch-here destination
     foreach lowest-cost-path [
@@ -506,6 +506,12 @@ to display-path-difference
   ]
 end
 
+to clear-paths-difference
+  ask patches with [plabel-color = 17 or plabel-color = 57] [ set plabel "" ]
+  ask turtles with [shape = "flag" or shape = "target" ] [ die ]
+  update-pcolors
+end
+
 ;; displays user and base stations properties
 to display-labels
   ask turtles [ set label "" ]
@@ -515,7 +521,7 @@ to display-labels
   if show-distance-to-nearest-bs? [
     ask users [ set label round distance-to-nearest-bs ]
   ]
-  if show-path-difference? [ display-path-difference ]
+  if show-path-difference? [ display-paths-difference ]
 end
 
 ;; updates user and base stations properties
@@ -691,7 +697,7 @@ TEXTBOX
 105
 30
 255
-46
+48
 World Area is fixed to 1 km²
 12
 0.0
