@@ -1,1 +1,1 @@
-# User-Mobility-Model
+# User Mobility and Base Stations Management (UMBSM) Model
