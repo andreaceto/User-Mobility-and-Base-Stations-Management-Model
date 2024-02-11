@@ -3,8 +3,8 @@ breed [bases base]
 
 users-own [
   nearest-bs
-  distance-to-nearest-bs
   linked-bs
+  user-C_d
   destination
   distance-to-dest
   path-to-dest
@@ -12,8 +12,11 @@ users-own [
 bases-own [
   capacity
   linked-users
+  isAvailable
 ]
 patches-own [
+  C_d
+  potential-C_d
   weight ;; helps with the Base Stations distribution based on 5G coverage
   cost ;; weight related, fundamental to determine the path users follow to reach their destination
 ]
@@ -23,14 +26,15 @@ globals [
   population-scale ;; represents the model:real world ratio
   number-of-user ;; the number of users in the model defined considering population-density and population-scale
   ;show-linked-users? ;; if TRUE the number of linked users for every base station is shown
-  ;show-distance-to-nearest-bs? ;; if TRUE the distance to the closest base station for every user is shown
+  ;show-user-bs-connections? ;; if TRUE the links between Base Stations and connected users are shown
   world-area ;; fixed world-area defined at setup in km²
   patch-side-length ;; defined following world-side-length, used to track user travel distance in metres
   ;show-bs-range? ;; if TRUE, for each Base Station, the signal range is shown
-  _4G-signal-range
-  _5G-signal-range
-  _5G-coverage
-  ;target-5G-coverage ;; defined by user to create different scenarios of world generation, Base Station are created and placed accordingly
+  _BS-signal-range
+  bs-capacity
+  supplied-C_d
+  ;target-C_d ;; defined by user to create different scenarios of world generation, Base Station are created and placed accordingly
+  ;show-user-C_d? ;; if TRUE the Channel Capacity in function of distance [C(d)]is shown for every user is shown
   potential-bs-spots
   ;show-path-difference? ;; if TRUE, both shortest-path and lowest-cost-path are shown
 ]
@@ -47,7 +51,9 @@ to setup
 
   setup-patches-cost
 
-  setup-user-bs-links
+  manage-user-bs-links
+
+  calculate-user-C_d
 
   compute-paths
 
@@ -66,7 +72,8 @@ to go
   ask users [reach-destination]
 
   tick
-  update-user-bs-links
+  manage-user-bs-links
+  calculate-user-C_d
   update-labels
 end
 
@@ -97,8 +104,8 @@ to setup-users [num-users]
     move-to one-of patches
 
     set nearest-bs nobody
-    set distance-to-nearest-bs -1
     set linked-bs nobody
+    set user-C_d -1
     set destination nobody
     set distance-to-dest -1
     set path-to-dest []
@@ -127,7 +134,9 @@ to-report is-spot-valid [x y]
   (ifelse
     (x < min-pxcor or x > max-pxcor) [ report false ]
     (y < min-pycor or y > max-pycor) [ report false ]
-    [ report true ]
+    [ ifelse (not any? bases with [xcor = x AND ycor = y]) [report true]
+      [report false]
+    ]
   )
 
 end
@@ -135,7 +144,7 @@ end
 ;; find potential patches to sprout a Base Station
 to find-potential-locations [x y]
   ;; this is just for readability
-  let var _5G-signal-range
+  let var _BS-signal-range
 
   let xmin x - var
   let xmax x + var
@@ -143,8 +152,8 @@ to find-potential-locations [x y]
   let ymax y + var
 
   ;For each base station we need to find these 24 patches, if their coordinates are valid we add them to a list
-  ; '+' points are points defined by the square built around the radius of the 5g signal range
-  ; '-' points are points defined by the square built around the radius of double the 5g signal range
+  ; '+' points are points defined by the square built around the radius of the BS signal range
+  ; '-' points are points defined by the square built around 1.5x the radius of the BS signal range
 
   ;-  -	  -	  -	  -
   ;
@@ -165,30 +174,33 @@ to find-potential-locations [x y]
   if(is-spot-valid xmax ymin) [set potential-bs-spots lput patch xmax ymin potential-bs-spots]
   if(is-spot-valid x ymin) [set potential-bs-spots lput patch x ymin potential-bs-spots]
 
-  if(is-spot-valid (xmin - var) (ymin - var)) [set potential-bs-spots lput patch (xmin - var) (ymin - var) potential-bs-spots]
-  if(is-spot-valid (xmin - var) ymin) [set potential-bs-spots lput patch (xmin - var) ymin potential-bs-spots]
-  if(is-spot-valid (xmin - var) y) [set potential-bs-spots lput patch (xmin - var) y potential-bs-spots]
-  if(is-spot-valid (xmin - var) ymax) [set potential-bs-spots lput patch (xmin - var) ymax potential-bs-spots]
-  if(is-spot-valid (xmin - var) (ymax + var)) [set potential-bs-spots lput patch (xmin - var) (ymax + var) potential-bs-spots]
-  if(is-spot-valid xmin (ymax + var)) [set potential-bs-spots lput patch xmin (ymax + var) potential-bs-spots]
-  if(is-spot-valid x (ymax + var)) [set potential-bs-spots lput patch x (ymax + var) potential-bs-spots]
-  if(is-spot-valid xmax (ymax + var)) [set potential-bs-spots lput patch xmax (ymax + var) potential-bs-spots]
-  if(is-spot-valid (xmax + var) (ymax + var)) [set potential-bs-spots lput patch (xmax + var) (ymax + var) potential-bs-spots]
-  if(is-spot-valid (xmax + var) ymax) [set potential-bs-spots lput patch (xmax + var) ymax potential-bs-spots]
-  if(is-spot-valid (xmax + var) y) [set potential-bs-spots lput patch (xmax + var) y potential-bs-spots]
-  if(is-spot-valid (xmax + var) ymin) [set potential-bs-spots lput patch (xmax + var) ymin potential-bs-spots]
-  if(is-spot-valid (xmax + var) (ymin - var)) [set potential-bs-spots lput patch (xmax + var) (ymin - var) potential-bs-spots]
-  if(is-spot-valid xmax (ymin - var)) [set potential-bs-spots lput patch xmax (ymin - var) potential-bs-spots]
-  if(is-spot-valid x (ymin - var)) [set potential-bs-spots lput patch x (ymin - var) potential-bs-spots]
-  if(is-spot-valid xmin (ymin - var)) [set potential-bs-spots lput patch xmin (ymin - var) potential-bs-spots]
+  if(is-spot-valid (xmin - var / 2) (ymin - var / 2)) [set potential-bs-spots lput patch (xmin - var / 2) (ymin - var / 2) potential-bs-spots]
+  if(is-spot-valid (xmin - var / 2) ymin) [set potential-bs-spots lput patch (xmin - var / 2) ymin potential-bs-spots]
+  if(is-spot-valid (xmin - var / 2) y) [set potential-bs-spots lput patch (xmin - var / 2) y potential-bs-spots]
+  if(is-spot-valid (xmin - var / 2) ymax) [set potential-bs-spots lput patch (xmin - var / 2) ymax potential-bs-spots]
+  if(is-spot-valid (xmin - var / 2) (ymax + var / 2)) [set potential-bs-spots lput patch (xmin - var / 2) (ymax + var / 2) potential-bs-spots]
+  if(is-spot-valid xmin (ymax + var / 2)) [set potential-bs-spots lput patch xmin (ymax + var / 2) potential-bs-spots]
+  if(is-spot-valid x (ymax + var / 2)) [set potential-bs-spots lput patch x (ymax + var / 2) potential-bs-spots]
+  if(is-spot-valid xmax (ymax + var / 2)) [set potential-bs-spots lput patch xmax (ymax + var / 2) potential-bs-spots]
+  if(is-spot-valid (xmax + var / 2) (ymax + var / 2)) [set potential-bs-spots lput patch (xmax + var / 2) (ymax + var / 2) potential-bs-spots]
+  if(is-spot-valid (xmax + var / 2) ymax) [set potential-bs-spots lput patch (xmax + var / 2) ymax potential-bs-spots]
+  if(is-spot-valid (xmax + var / 2) y) [set potential-bs-spots lput patch (xmax + var / 2) y potential-bs-spots]
+  if(is-spot-valid (xmax + var / 2) ymin) [set potential-bs-spots lput patch (xmax + var / 2) ymin potential-bs-spots]
+  if(is-spot-valid (xmax + var / 2) (ymin - var / 2)) [set potential-bs-spots lput patch (xmax + var / 2) (ymin - var / 2) potential-bs-spots]
+  if(is-spot-valid xmax (ymin - var / 2)) [set potential-bs-spots lput patch xmax (ymin - var / 2) potential-bs-spots]
+  if(is-spot-valid x (ymin - var / 2)) [set potential-bs-spots lput patch x (ymin - var / 2) potential-bs-spots]
+  if(is-spot-valid xmin (ymin - var / 2)) [set potential-bs-spots lput patch xmin (ymin - var / 2) potential-bs-spots]
 end
 
 ;; updates color-weight mapping
 to update-color-weight-mapping
   ask patches [
     (ifelse
-      (weight = 2) [ set pcolor lime ]
-      (weight = 1) [ set pcolor yellow ]
+      (weight = 5) [ set pcolor lime ]
+      (weight = 4) [ set pcolor turquoise ]
+      (weight = 3) [ set pcolor cyan ]
+      (weight = 2) [ set pcolor sky ]
+      (weight = 1) [ set pcolor blue ]
       [ set pcolor 3 ] ;; dark gray
     )
   ]
@@ -198,17 +210,88 @@ end
 ;; useful in the Base Station setup while analyzing potential spots coverage improvement.
 ;; Since colors are not updated during analysis, this procedure works as a "load last saved mapping".
 to reset-color-weight-mapping
-  ask patches with [pcolor = lime][set weight 2]
-  ask patches with [pcolor = yellow][set weight 1]
+  ask patches with [pcolor = lime ][set weight 5]
+  ask patches with [pcolor = turquoise][set weight 4]
+  ask patches with [pcolor = cyan][set weight 3]
+  ask patches with [pcolor = sky][set weight 2]
+  ask patches with [pcolor = blue][set weight 1]
   ask patches with [pcolor = 3][set weight 0]
 end
 
+to calculate-user-C_d
+  ask users[
+    ;; first step is to caluclate the distance (in metres) to the linked-bs
+    let r ((distance linked-bs) * patch-side-length)
+
+    ;; this is to avoid error when calculating the exp in logArgument
+    if(r = 0)[ set r 0.1 ]
+
+    ;; for readability we first calculate the argument of the logarithm
+    let logArgument (11 * 26 * r ^ -3) / 10 ^ -4.5
+
+    ;; we finish the calculation process by dividing for 10^9 to obtain values in Gigabit/s
+    ;; the we use the 'precision' keyword to take only 4 decimal digits
+    set user-C_d precision (((10 ^ 8) * log (1 + logArgument) 2) / 10 ^ 9) 4
+  ]
+end
+
+to calculate-C_d
+  let closest-bs min-one-of bases [distance myself]
+
+  let r ((distance closest-bs) * patch-side-length)
+
+  ;; this is to avoid error when calculating the exp in logArgument
+  if(r = 0)[ set r 0.1 ]
+
+  let logArgument (11 * 26 * r ^ -3) / 10 ^ -4.5
+
+  let tmp-C_d precision (((10 ^ 8) * log (1 + logArgument) 2) / 10 ^ 9) 4
+
+  if(tmp-C_d >= C_d)[set C_d tmp-C_d]
+end
+
+to evaluate-C_d
+  let closest-bs min-one-of bases [distance myself]
+
+  let r ((distance closest-bs) * patch-side-length)
+
+  ;; this is to avoid error when calculating the exp in logArgument
+  if(r = 0)[ set r 0.1 ]
+
+  let logArgument (11 * 26 * r ^ -3) / 10 ^ -4.5
+
+  set potential-C_d precision (((10 ^ 8) * log (1 + logArgument) 2) / 10 ^ 9) 4
+end
+
+to set-C_d-weight-mapping
+  (ifelse
+    (C_d >= (target-C_d * 2)) [set weight 5]
+    (C_d >= target-C_d AND C_d < (target-C_d * 2)) [ set weight 4 ]
+    (C_d >= (target-C_d / 2) AND C_d < (target-C_d)) [ set weight 3 ]
+    (C_d >= (target-C_d / 4) AND C_d < (target-C_d / 2)) [ set weight 2]
+    (C_d >= (target-C_d / 8) AND C_d < (target-C_d / 4)) [ set weight 1 ]
+    ;; default:
+    [ set weight 0]
+  )
+end
+
+to temp-C_d-weight-mapping
+    (ifelse
+    (potential-C_d >= (target-C_d * 2)) [set weight 5]
+    (potential-C_d >= target-C_d AND potential-C_d < (target-C_d * 2)) [ set weight 4 ]
+    (potential-C_d >= (target-C_d / 2) AND potential-C_d < (target-C_d)) [ set weight 3 ]
+    (potential-C_d >= (target-C_d / 4) AND potential-C_d < (target-C_d / 2)) [ set weight 2]
+    (potential-C_d >= (target-C_d / 8) AND potential-C_d < (target-C_d / 4)) [ set weight 1 ]
+    ;; default:
+    [ set weight 0]
+  )
+end
 ;; creates base staions, initializes their variables and places them following a Weighted Distribution System
 to setup-bases
   ;; initialization
-  ask patches [set weight 0]
-  set _4G-signal-range round 50000 / patch-side-length
-  set _5G-signal-range round 250 / patch-side-length
+  ask patches [set weight 0 set C_d 0.0001]
+  set _BS-signal-range round 400 / patch-side-length
+  set bs-capacity 500 * population-scale
   set potential-bs-spots []
 
   ;; first BS is placed randomly to improve variety in world generation
@@ -218,24 +301,23 @@ to setup-bases
       set size 10
       set color 62
 
-      set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
+      set capacity bs-capacity
       set linked-users 0
+      set isAvailable true
     ]
-    ask patches in-radius _4G-signal-range [
-      set weight 1
-    ]
-    ask patches in-radius _5G-signal-range [
-      set weight 2
+    ask patches in-radius _BS-signal-range [
+      calculate-C_d
+      set-C_d-weight-mapping
     ]
 
     find-potential-locations [pxcor] of self [pycor] of self
   ]
   update-color-weight-mapping
 
-  set _5G-coverage count patches with [weight = 2] * 100 / count patches
+  set supplied-C_d count patches with [C_d >= target-C_d] * 100 / count patches
 
-  ;; while the 5G coverage doesn't meet the target we keep placing new BS
-  while[_5G-coverage < target-5G-coverage][
+  ;; while the whole world-area doesn't meet target requirements we keep placing new BS
+  while[supplied-C_d < 99][
     let potential-locations []
     ;; improvement in coverage
     let delta-coverage []
@@ -245,11 +327,12 @@ to setup-bases
       p ->
        ask p [
         set potential-locations lput self potential-locations
-        ask patches in-radius _5G-signal-range [
-          set weight 2
+        ask patches in-radius _BS-signal-range [
+          evaluate-C_d
+          temp-C_d-weight-mapping
         ]
-        let current-coverage count patches with [weight = 2] * 100 / count patches
-        set delta-coverage lput (current-coverage - _5G-coverage) delta-coverage
+        let current-coverage count patches with [C_d >= target-C_d] * 100 / count patches
+        set delta-coverage lput (current-coverage - supplied-C_d) delta-coverage
 
         reset-color-weight-mapping
        ]
@@ -262,23 +345,29 @@ to setup-bases
     set potential-bs-spots remove-item designated-patch-index potential-bs-spots
 
     ask designated-patch [
-      sprout-bases 1 [
-      set shape "basestation"
-      set size 10
-      set color 62
+      if not any? bases-here [
+        sprout-bases 1 [
+          set shape "basestation"
+          set size 10
+          set color 62
 
-      set capacity 50 ;; TO-BE UPDATED user should be able to modify this parameter
-      set linked-users 0
-      ]
-      ask patches in-radius _5G-signal-range [
-        set weight 2
+          set capacity bs-capacity
+          set linked-users 0
+          set isAvailable true
+        ]
+        ask patches in-radius _BS-signal-range [
+          calculate-C_d
+          set-C_d-weight-mapping
+        ]
+
+        find-potential-locations [pxcor] of self [pycor] of self
+
       ]
 
-      find-potential-locations [pxcor] of self [pycor] of self
     ]
 
     update-color-weight-mapping
-    set _5G-coverage count patches with [weight = 2] * 100 / count patches
+    set supplied-C_d count patches with [C_d >= target-C_d] * 100 / count patches
   ]
   update-pcolors
 end
@@ -287,81 +376,85 @@ end
 to setup-patches-cost
   ;; 5G covered patches cost less to go through
   ask patches [
-    ifelse weight = 2
-    [set cost 1]
-    [set cost 4]
+    (ifelse
+      (weight = 5) [ set cost 1 ]
+      (weight = 4) [ set cost 4 ]
+      (weight = 3) [ set cost 8 ]
+      (weight = 2) [ set cost 16 ]
+      (weight = 1) [ set cost 32 ]
+      [ set pcolor 64 ]
+    )
   ]
+end
+
+to establish-link-with [bs]
+  create-link-with bs
+
+;  ask links [
+;    hide-link
+;  ]
+
+  ;; set the linked-bs property
+  set linked-bs bs
+
+  ;; update linked-users counter for every Base Station
+  update-linked-users
 end
 
 ;; finds nearest Base Station for every user and sets related property
-to setup-user-bs-links
+to manage-user-bs-links
   ask users [
 
-    ;; find the nearest base station
     set nearest-bs min-one-of bases [distance myself]
 
-    ;; create a link with the nearest base station
-    create-link-with nearest-bs
+    ;; find the nearest base station
+    let available-bs sort-on [distance myself] bases with [isAvailable = true]
 
-    ask links [
-      hide-link
-    ]
+    let linkable-bs item 0 available-bs
 
-    ;; set the linked-bs property
-    set linked-bs nearest-bs
-
-    ;; set the distance-to-nearest-base-station variable
-    set distance-to-nearest-bs (distance nearest-bs) * patch-side-length
-  ]
-
-  ;; update linked-users counter for every Base Station
-  update-linked-users
-end
-
-;; updates links between users and nearest Base Stations -if needed- and all related properties
-to update-user-bs-links
-  ask users [
-    ;; find nearest Base Station as the user moves
-    let actual-nearest-bs min-one-of bases [distance myself]
-
-    ;; if user movement causes a change of the nearest Base Station then update his properties
-    if (actual-nearest-bs != nearest-bs) [
-      ;; [who] properties of both user and Base Station is used to find the older link and delete it
-      ask link [who] of self [who] of nearest-bs [die]
-
-      ;; user properties update
-      set nearest-bs actual-nearest-bs
-      create-link-with nearest-bs
-      ask links [
-        hide-link
+    (ifelse
+      (linked-bs = nobody) [
+        establish-link-with linkable-bs
       ]
-      set linked-bs nearest-bs
-    ]
-
-    ;; in any case the distance to the nearest-bs is updated following user movement
-    set distance-to-nearest-bs (distance nearest-bs) * patch-side-length
+      (linked-bs != nobody and linked-bs != linkable-bs) [
+        ask link [who] of self [who] of linked-bs [die]
+        establish-link-with linkable-bs
+      ]
+      [
+        ;;do nothing
+      ]
+    )
   ]
 
-  ;; update linked-users counter for every Base Station
-  update-linked-users
 end
 
 ;; updates Base Stations' linked-users property
 to update-linked-users
   ask bases [
-    set linked-users count users with [linked-bs = myself]
+    let linked-users-num count users with [linked-bs = myself]
+
+    ifelse(linked-users-num < capacity)[
+      set isAvailable true
+    ][
+      set isAvailable false
+    ]
+
+    set linked-users linked-users-num
   ]
 end
 
-;; updates patches color to help visualize weighted distribution system
+;; updates patches color to help visualize max-C_d distribution system
 to update-pcolors
   ask patches [
     ifelse not show-bs-range?
     [ set pcolor 3 ] ;; dark gray
     [
       (ifelse
-        (weight = 2) [ set pcolor lime ]
-        (weight = 1) [ set pcolor yellow ]
+        (weight = 5) [ set pcolor lime ]
+        (weight = 4) [ set pcolor turquoise ]
+        (weight = 3) [ set pcolor cyan ]
+        (weight = 2) [ set pcolor sky ]
+        (weight = 1) [ set pcolor blue ]
         [ set pcolor 3 ] ;; dark gray
       )
     ]
@@ -454,7 +547,7 @@ to compute-paths
 end
 
 ;; makes users move towards their destination
-to reach-destination ;; --TO BE UPDATED--
+to reach-destination
 
   if(patch-here = last path-to-dest)[ die ]
 
@@ -463,19 +556,6 @@ to reach-destination ;; --TO BE UPDATED--
 
   move-to next-patch
 
-;  let dest [destination] of self
-;
-;  ;; when users reach their destination we stop considering them
-;  if(patch-here = dest) [die]
-;
-;  ;; at each step the user moves to the neighbor patch closest to the destination
-;  move-to min-one-of neighbors [distance dest]
-;
-;  ;; updates distance to destination at each step
-;  ;; that older distance is just decreased by a patch-side-length
-;  ;; that's beacause at each step the user moves to the centre of his current patch to the centre of another patch
-;  ;; but that equals a patch-side-length distance traveled since patch are squares
-;  set distance-to-dest round(distance-to-dest - patch-side-length)
 end
 
 to display-paths-difference
@@ -516,10 +596,14 @@ end
 to display-labels
   ask turtles [ set label "" ]
   if show-linked-users? [
-    ask bases [ set label linked-users ]
+    ask bases [ set label (word linked-users "/" capacity) ]
   ]
-  if show-distance-to-nearest-bs? [
-    ask users [ set label round distance-to-nearest-bs ]
+  ifelse show-user-bs-connections? [ask links [show-link]][ask links [hide-link]]
+  if show-user-C_d? [
+    ask users [
+      set label user-C_d
+      manage-label-color
+    ]
   ]
   if show-path-difference? [ display-paths-difference ]
 end
@@ -528,11 +612,27 @@ end
 to update-labels
   ask turtles [ set label "" ]
   if show-linked-users? [
-    ask bases [ set label linked-users ]
+    ask bases [ set label (word linked-users "/" capacity) ]
   ]
-  if show-distance-to-nearest-bs? [
-    ask users [ set label round distance-to-nearest-bs ]
+  ifelse show-user-bs-connections? [ask links [show-link]][ask links [hide-link]]
+  if show-user-C_d? [
+    ask users [
+      set label user-C_d
+      manage-label-color
+    ]
   ]
+end
+
+to manage-label-color
+  (ifelse
+    (user-C_d >= (target-C_d * 2)) [set label-color ]
+    (user-C_d >= target-C_d AND user-C_d < (target-C_d * 2)) [ set label-color lime ]
+    (user-C_d >= (target-C_d / 2) AND user-C_d < (target-C_d)) [ set label-color yellow ]
+    (user-C_d >= (target-C_d / 4) AND user-C_d < (target-C_d / 2)) [ set label-color orange]
+    (user-C_d >= (target-C_d / 8) AND user-C_d < (target-C_d / 4)) [ set label-color red ]
+    ;; default:
+    [ set label-color white]
+  )
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -581,12 +681,12 @@ NIL
 
 SWITCH
 80
-215
+345
 287
-248
-show-distance-to-nearest-bs?
-show-distance-to-nearest-bs?
-1
+378
+show-user-C_d?
+show-user-C_d?
+0
 1
 -1000
 
@@ -597,7 +697,7 @@ SWITCH
 203
 show-linked-users?
 show-linked-users?
-1
+0
 1
 -1000
 
@@ -620,9 +720,9 @@ NIL
 
 PLOT
 80
-335
+395
 285
-495
+555
 Users in the system
 time (ticks)
 users (units)
@@ -638,9 +738,9 @@ PENS
 
 TEXTBOX
 125
-295
+320
 250
-313
+338
 [Distances are in metres]
 10
 0.0
@@ -653,7 +753,7 @@ SWITCH
 203
 show-bs-range?
 show-bs-range?
-0
+1
 1
 -1000
 
@@ -682,17 +782,6 @@ TEXTBOX
 0.0
 1
 
-MONITOR
-1055
-90
-1182
-143
-5G Coverage (%)
-_5G-coverage
-17
-1
-13
-
 TEXTBOX
 105
 30
@@ -705,20 +794,20 @@ World Area is fixed to 1 km²
 
 SWITCH
 80
-255
 285
-288
+285
+318
 show-path-difference?
 show-path-difference?
-0
+1
 1
 -1000
 
 TEXTBOX
 285
-255
+285
 435
-273
+303
 [shortest-path]
 10
 15.0
@@ -726,9 +815,9 @@ TEXTBOX
 
 TEXTBOX
 285
-275
+305
 435
-293
+323
 [lowest-cost-path]
 10
 55.0
@@ -739,12 +828,12 @@ SLIDER
 30
 1207
 63
-target-5G-coverage
-target-5G-coverage
-25
-75
-75.0
-25
+target-C_d
+target-C_d
+0.05
+0.1
+0.07
+0.01
 1
 NIL
 HORIZONTAL
@@ -758,6 +847,46 @@ TEXTBOX
 10
 0.0
 1
+
+TEXTBOX
+1145
+65
+1295
+83
+(x 10^9 bit/s per Hz)
+10
+0.0
+1
+
+SWITCH
+80
+230
+285
+263
+show-user-bs-connections?
+show-user-bs-connections?
+0
+1
+-1000
+
+PLOT
+1035
+110
+1490
+375
+Average distance dependent User Channel Capacity
+time (ticks)
+C(d) (Gbit/s)
+0.0
+100.0
+0.0
+0.5
+false
+true
+"" ""
+PENS
+"Average" 1.0 0 -16777216 true "let user-C_d-sum 0\nask users [set user-C_d-sum user-C_d-sum + user-C_d]\nplot precision (user-C_d-sum / count users) 4\n" "let user-C_d-sum 0\nask users [set user-C_d-sum user-C_d-sum + user-C_d]\nif(count users > 0)[\n  plot precision (user-C_d-sum / count users) 4\n]"
+"Target" 1.0 0 -13840069 true "plot target-C_d\nset-plot-pen-interval 100" "plot target-C_d\nset-plot-pen-interval 100"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -999,6 +1128,16 @@ line half
 true
 0
 Line -7500403 true 150 0 150 150
+
+mbs
+false
+11
+Circle -1184463 true false 207 91 31
+Rectangle -7500403 true false 120 30 135 135
+Rectangle -7500403 true false 120 210 135 300
+Rectangle -7500403 false false 105 135 150 210
+Polygon -7500403 true false 135 135 210 105 240 105 255 90 210 90 135 120
+Rectangle -8630108 true true 113 11 143 86
 
 pentagon
 false
